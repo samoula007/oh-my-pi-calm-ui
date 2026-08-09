@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { getDefault } from "@oh-my-pi/pi-coding-agent/config/settings-schema";
 import { StatusLineComponent, type StatusLineSettings } from "@oh-my-pi/pi-coding-agent/modes/components/status-line";
 import { STATUS_LINE_PRESETS } from "@oh-my-pi/pi-coding-agent/modes/components/status-line/presets";
 import { initTheme } from "@oh-my-pi/pi-coding-agent/modes/theme/theme";
@@ -76,6 +77,20 @@ function makeComponent(statusLineSettings: StatusLineSettings): StatusLineCompon
 }
 
 describe("StatusLineComponent effective settings cache", () => {
+	it("uses lean Pi-style defaults for the interactive chrome", () => {
+		expect(getDefault("theme.dark")).toBe("dark-monochrome");
+		expect(getDefault("symbolPreset")).toBe("unicode");
+		expect(getDefault("statusLine.preset")).toBe("compact");
+		expect(getDefault("statusLine.separator")).toBe("none");
+		expect(getDefault("statusLine.sessionAccent")).toBe(false);
+		expect(getDefault("statusLine.transparent")).toBe(true);
+		expect(getDefault("tui.tight")).toBe(true);
+		expect(getDefault("tui.titleState")).toBe(false);
+		expect(getDefault("display.shimmer")).toBe("disabled");
+		expect(getDefault("display.smoothStreaming")).toBe(false);
+		expect(getDefault("startup.quiet")).toBe(true);
+		expect(getDefault("startup.changelogMode")).toBe("hidden");
+	});
 	it("keeps repeated cached renders byte-identical across presets and widths", () => {
 		const cases: StatusLineSettings[] = [
 			{ preset: "default", sessionAccent: false },
@@ -110,7 +125,7 @@ describe("StatusLineComponent effective settings cache", () => {
 		});
 		const firstEffective = component.getEffectiveSettingsForTest();
 		component.setHookStatus("lint", "lint running");
-		expect(component.render(80)).toEqual([]);
+		expect(component.render(80)).toHaveLength(1);
 
 		component.updateSettings({
 			preset: "custom",
@@ -128,7 +143,8 @@ describe("StatusLineComponent effective settings cache", () => {
 		expect(secondEffective.sessionAccent).toBe(false);
 		expect(secondEffective.segmentOptions.path?.maxLength).toBe(12);
 		expect(stripVTControlCharacters(component.getTopBorder(80).content)).toContain("Cache Session");
-		expect(component.render(80)).toEqual(["lint running"]);
+		expect(component.render(80)).toHaveLength(2);
+		expect(component.render(80)[1]).toBe("lint running");
 	});
 
 	it("preserves preset option siblings while user segment options win", () => {
@@ -180,9 +196,11 @@ describe("StatusLineComponent effective settings cache", () => {
 		expect(component.getEffectiveSettingsForTest()).toBe(effective);
 
 		component.setHookStatus("hook", "hook running");
-		expect(component.render(80)).toEqual(["hook running"]);
+		expect(component.render(80)).toHaveLength(2);
+		expect(component.render(80)[1]).toBe("hook running");
 		component.setHookStatus("hook", "hook done");
-		expect(component.render(80)).toEqual(["hook done"]);
+		expect(component.render(80)).toHaveLength(2);
+		expect(component.render(80)[1]).toBe("hook done");
 		expect(component.getEffectiveSettingsForTest()).toBe(effective);
 	});
 

@@ -372,7 +372,6 @@ class AnchoredLiveContainer extends Container implements NativeScrollbackLiveReg
 		return this.children.length > 0 ? 0 : undefined;
 	}
 }
-
 /** How long the ctrl+p model-role cycle chip track lingers above the editor
  *  before it auto-clears, mirroring the todo HUD's auto-clear timer. */
 const MODEL_CYCLE_TRACK_CLEAR_MS = 4000;
@@ -731,6 +730,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.modelCycleContainer = new AnchoredLiveContainer();
 		this.editor = new CustomEditor(getEditorTheme());
 		this.ui.enableScopedInputRender(this.editor);
+		this.editor.setBorderVisible(true);
 		this.editor.setUseTerminalCursor(this.ui.getShowHardwareCursor());
 		this.editor.setImeSafeCursorLayout(settings.get("tui.imeSafeCursor"));
 		this.editor.setAutocompleteMaxVisible(settings.get("autocompleteMaxVisible"));
@@ -772,12 +772,6 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.statusLine.setVibeWorkerTokenRateProvider(() =>
 			aggregateVibeWorkerTokensPerSecond(this.session.getAgentId() ?? MAIN_AGENT_ID),
 		);
-		// Lazy provider — the top border rebuild coalesces to at most one
-		// invocation per painted frame instead of firing on every session event
-		// (#4145). The TUI throttles renders at ~30fps, so a long-running eval
-		// spraying events no longer runs `getTopBorder` synchronously in the
-		// hot path where the render never gets to paint the result.
-		this.editor.setTopBorderProvider(availableWidth => this.statusLine.getTopBorder(availableWidth));
 
 		this.hideToolActivity = settings.get("display.hideToolActivity");
 		this.hideThinkingBlock = settings.get("hideThinkingBlock");
@@ -983,20 +977,15 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.ui.addChild(this.omfgContainer);
 		this.ui.addChild(this.errorBannerContainer);
 		this.ui.addChild(this.modelCycleContainer);
-		// Working loader / transient status sits below the sticky todo + subagent
-		// HUDs, just above the editor's hook-widget top margin — so it reads next to
-		// the prompt while keeping the one-line gap above the editor.
 		this.ui.addChild(this.statusContainer);
-		this.ui.addChild(this.statusLine); // Only renders hook statuses (main status in editor border)
 		this.ui.addChild(this.hookWidgetContainerAbove);
 		this.ui.addChild(this.editorContainer);
 		this.ui.addChild(this.hookWidgetContainerBelow);
+		this.ui.addChild(new Spacer(1));
+		this.ui.addChild(this.statusLine); // Model, effort, context, usage, and session data
 		this.ui.setFocus(this.editor);
-
 		this.#inputController.setupKeyHandlers();
 		this.#inputController.setupEditorSubmitHandler();
-
-		// Wire observer registry to EventBus
 		if (this.#eventBus) {
 			this.#observerRegistry.subscribeToEventBus(this.#eventBus);
 		}
@@ -1005,36 +994,22 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.#observerRegistry.onChange(kind => {
 			this.#scheduleObserverUiSync(kind);
 		});
-		// Let the transient todo tool result light up pending todos executed by a
-		// live subagent, matching the sticky HUD's active set (#5873).
 		setActiveTodoDescriptionsProvider(() => this.#getActiveSubagentDescriptions());
-
-		// Load initial todos
 		await this.#loadTodoList();
-
 		if (process.platform === "darwin" && TERMINAL.id === "wezterm" && !isInsideTerminalMultiplexer()) {
 			this.#eventBusUnsubscribers.push(startMacOSAppearanceReprobeFallback(this.ui.terminal));
 		}
-
-		// Start the UI. Cold `omp` launch opts into clearing on the first paint so
-		// the initial welcome frame does not append over the previous run's scrollback.
 		this.ui.start({ clearScrollback: options.clearInitialTerminalHistory === true });
 		pushTerminalTitle();
 		setTerminalTitleStateEnabled(this.settings.get("tui.titleState"));
 		setSessionTerminalTitle(this.sessionManager.getSessionName(), this.sessionManager.getCwd());
 		this.updateEditorBorderColor();
-		// Single side-effect point for title changes: every setSessionName caller
-		// (first-input titling, /rename, extension renames, plan seeding, replan
-		// refresh) gets the terminal title + accent updates from here. Registered
-		// before initHooksAndCustomTools/#reconcileModeFromSession/#enterPlanMode —
-		// all of which can reach setSessionName during init.
 		this.#eventBusUnsubscribers.push(
 			this.sessionManager.onSessionNameChanged(() => {
 				setSessionTerminalTitle(this.sessionManager.getSessionName(), this.sessionManager.getCwd());
 				this.#handleSessionAccentInputsChanged();
 			}),
 		);
-		this.#syncEditorMaxHeight();
 		this.isInitialized = true;
 		this.ui.requestRender(true);
 
@@ -4333,7 +4308,7 @@ export class InteractiveMode implements InteractiveModeContext {
 				},
 				messageColorFn,
 				this.#defaultWorkingMessage,
-				getSymbolTheme().spinnerFrames,
+				shimmerEnabled() ? getSymbolTheme().spinnerFrames : ["…"],
 			);
 			this.statusContainer.addChild(this.loadingAnimation);
 		} else if (!this.statusContainer.children.includes(this.loadingAnimation)) {

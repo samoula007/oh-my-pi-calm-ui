@@ -27,7 +27,7 @@ export const STATUS_LINE_PRESETS: Record<StatusLinePreset, PresetDef> = {
 		rightSegments: ["session_name", "cost", "context_pct"],
 		separator: "powerline-thin",
 		segmentOptions: {
-			model: { showThinkingLevel: false },
+			model: { showThinkingLevel: true },
 			git: { showBranch: true, showStaged: true, showUnstaged: true, showUntracked: false },
 		},
 	},

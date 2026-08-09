@@ -12,6 +12,7 @@ import {
 } from "@oh-my-pi/pi-tui";
 import { formatNumber } from "@oh-my-pi/pi-utils";
 import chalk from "@oh-my-pi/pi-utils/chalk";
+import { settings } from "../../config/settings";
 import type { AssistantThinkingRenderer } from "../../extensibility/extensions/types";
 import { getMarkdownTheme, theme } from "../../modes/theme/theme";
 import { expandKeyHint, getPreviewLines, resolveImageOptions, TRUNCATE_LENGTHS } from "../../tools/render-utils";
@@ -347,7 +348,8 @@ export class AssistantMessageComponent extends Container {
 	 * Once text starts, a tool call streams, or the block is sealed, the pulse ends.
 	 */
 	#shouldAnimateThinking(message: AssistantMessage): boolean {
-		if (!this.hideThinkingBlock || this.#transcriptBlockFinalized) return false;
+		if (!this.hideThinkingBlock || this.#transcriptBlockFinalized || settings.get("display.shimmer") === "disabled")
+			return false;
 		let tail: "text" | "thinking" | undefined;
 		for (const content of message.content) {
 			if (content.type === "toolCall") return false;

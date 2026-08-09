@@ -10,7 +10,7 @@
 import { type Component, Container, Loader, Text, type TUI } from "@oh-my-pi/pi-tui";
 import { getSymbolTheme, theme } from "../../modes/theme/theme";
 import { formatTruncationMetaNotice, type TruncationMeta } from "../../tools/output-meta";
-import { DynamicBorder } from "./dynamic-border";
+import { shimmerEnabled } from "../theme/shimmer";
 import { truncateToVisualLines } from "./visual-truncate";
 
 export type ExecutionStatus = "running" | "complete" | "cancelled" | "error";
@@ -19,32 +19,26 @@ export type ExecutionStatus = "running" | "complete" | "cancelled" | "error";
 export type ExecutionColorKey = "dim" | "bashMode" | "pythonMode";
 
 /**
- * Build the spacer + top border + content container + bottom border scaffold
- * that bash and eval execution components share. The caller appends the
- * header (command vs `>>>` prompt) and the returned loader to
- * `contentContainer` so per-mode order is preserved.
+ * Build the plain execution area shared by bash and eval. The caller appends
+ * the header, output, and returned loader to `contentContainer`.
  */
 export function buildExecutionFrame(
 	parent: Container,
 	ui: TUI,
 	colorKey: ExecutionColorKey,
 ): { contentContainer: Container; loader: Loader } {
-	const borderColor = (str: string) => theme.fg(colorKey, str);
-
-	parent.addChild(new DynamicBorder(borderColor));
-
 	const contentContainer = new Container();
 	parent.addChild(contentContainer);
 
+	const animated = shimmerEnabled();
 	const loader = new Loader(
 		ui,
-		spinner => theme.fg(colorKey, spinner),
+		spinner => (animated ? theme.fg(colorKey, spinner) : ""),
 		text => theme.fg("muted", text),
 		`Running… (esc to cancel)`,
-		getSymbolTheme().spinnerFrames,
+		animated ? getSymbolTheme().spinnerFrames : ["…"],
 	);
-
-	parent.addChild(new DynamicBorder(borderColor));
+	parent.addChild(loader);
 	return { contentContainer, loader };
 }
 

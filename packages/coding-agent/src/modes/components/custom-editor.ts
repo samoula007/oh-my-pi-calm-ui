@@ -515,8 +515,11 @@ export class CustomEditor extends Editor {
 	 *  once they are loaded. An explicit `magicKeywordsEnabledOverride` overrides
 	 *  both paths. */
 	#shimmerEnabled(): boolean {
-		if (this.magicKeywordsEnabledOverride !== undefined) return this.magicKeywordsEnabledOverride;
-		return isSettingsInitialized() ? settings.get("magicKeywords.enabled") : true;
+		const displayShimmerEnabled = !isSettingsInitialized() || settings.get("display.shimmer") !== "disabled";
+		if (this.magicKeywordsEnabledOverride !== undefined) {
+			return this.magicKeywordsEnabledOverride && displayShimmerEnabled;
+		}
+		return !isSettingsInitialized() || (settings.get("magicKeywords.enabled") && displayShimmerEnabled);
 	}
 
 	/** Bind the host's render request callback. Idempotent — the host wires this

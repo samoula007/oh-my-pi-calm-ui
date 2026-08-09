@@ -581,7 +581,7 @@ export const SETTINGS_SCHEMA = {
 	// Theme
 	"theme.dark": {
 		type: "string",
-		default: "titanium",
+		default: "dark-monochrome",
 		ui: {
 			tab: "appearance",
 			group: "Theme",
@@ -635,7 +635,7 @@ export const SETTINGS_SCHEMA = {
 	"statusLine.preset": {
 		type: "enum",
 		values: ["default", "minimal", "compact", "full", "nerd", "ascii", "custom"] as const,
-		default: "default",
+		default: "compact",
 		ui: {
 			tab: "appearance",
 			group: "Status Line",
@@ -656,7 +656,7 @@ export const SETTINGS_SCHEMA = {
 	"statusLine.separator": {
 		type: "enum",
 		values: ["powerline", "powerline-thin", "slash", "pipe", "block", "none", "ascii"] as const,
-		default: "powerline-thin",
+		default: "none",
 		ui: {
 			tab: "appearance",
 			group: "Status Line",
@@ -676,7 +676,7 @@ export const SETTINGS_SCHEMA = {
 
 	"statusLine.sessionAccent": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "appearance",
 			group: "Status Line",
@@ -687,7 +687,7 @@ export const SETTINGS_SCHEMA = {
 
 	"statusLine.transparent": {
 		type: "boolean",
-		default: false,
+		default: true,
 		ui: {
 			tab: "appearance",
 			group: "Status Line",
@@ -923,7 +923,7 @@ export const SETTINGS_SCHEMA = {
 
 	"tui.renderMermaid": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "appearance",
 			group: "Display",
@@ -946,7 +946,7 @@ export const SETTINGS_SCHEMA = {
 
 	"tui.titleState": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "appearance",
 			group: "Display",
@@ -970,7 +970,7 @@ export const SETTINGS_SCHEMA = {
 	},
 	"tui.tight": {
 		type: "boolean",
-		default: false,
+		default: true,
 		ui: {
 			tab: "appearance",
 			group: "Display",
@@ -993,7 +993,7 @@ export const SETTINGS_SCHEMA = {
 	"display.shimmer": {
 		type: "enum",
 		values: ["classic", "kitt", "disabled"] as const,
-		default: "classic",
+		default: "disabled",
 		ui: {
 			tab: "appearance",
 			group: "Display",
@@ -1009,7 +1009,7 @@ export const SETTINGS_SCHEMA = {
 
 	"display.smoothStreaming": {
 		type: "boolean",
-		default: true,
+		default: false,
 		ui: {
 			tab: "appearance",
 			group: "Display",
@@ -1790,7 +1790,7 @@ export const SETTINGS_SCHEMA = {
 
 	"startup.quiet": {
 		type: "boolean",
-		default: false,
+		default: true,
 		ui: {
 			tab: "interaction",
 			group: "Startup & Updates",
@@ -1853,7 +1853,7 @@ export const SETTINGS_SCHEMA = {
 	"startup.changelogMode": {
 		type: "enum",
 		values: ["summary", "expanded", "hidden"] as const,
-		default: "summary",
+		default: "hidden",
 		ui: {
 			tab: "interaction",
 			group: "Startup & Updates",

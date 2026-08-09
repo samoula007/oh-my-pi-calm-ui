@@ -1883,14 +1883,24 @@ export class StatusLineComponent implements Component {
 	}
 
 	render(width: number): readonly string[] {
-		// Only render hook statuses - main status is in editor's top border
-		const showHooks = this.#settings.showHookStatus ?? true;
-		if (!showHooks || this.#hookStatuses.size === 0) {
-			return [];
+		const lines: string[] = [];
+		const main = this.getTopBorder(width).content;
+		if (main) {
+			const footer = main
+				.replace(/[─-]{3,}/g, " ")
+				.replace(/ {2,}/g, " ")
+				.trim();
+			if (footer) lines.push(truncateToWidth(footer, width));
 		}
 
-		return Array.from(this.#hookStatuses.entries())
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([, text]) => truncateToWidth(sanitizeStatusText(text), width));
+		const showHooks = this.#settings.showHookStatus ?? true;
+		if (showHooks) {
+			lines.push(
+				...Array.from(this.#hookStatuses.entries())
+					.sort(([a], [b]) => a.localeCompare(b))
+					.map(([, text]) => truncateToWidth(sanitizeStatusText(text), width)),
+			);
+		}
+		return lines;
 	}
 }

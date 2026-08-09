@@ -1,3 +1,8 @@
+> [!NOTE]
+> This is `oh-my-pi-calm-ui`, a community fork of OMP with a calmer, less visually overwhelming default terminal UI. OMP's runtime features—providers, tools, MCP, memory, sessions, and extensions—remain available.
+>
+> UI changes in this fork: compact status data, reduced borders and animation, quieter startup, and a simpler editor/status arrangement. See the custom commit history for the exact source changes.
+
 <p align="center">
   <img src="https://github.com/can1357/oh-my-pi/blob/main/assets/hero.png?raw=true" alt="omp">
 </p>

@@ -4755,7 +4755,7 @@ export const SETTINGS_SCHEMA = {
 
 	"tasks.todoClearDelay": {
 		type: "number",
-		default: 60,
+		default: 0,
 		ui: {
 			tab: "tools",
 			group: "Todos",
@@ -4763,7 +4763,7 @@ export const SETTINGS_SCHEMA = {
 			description: "Delay before completed or abandoned todos are removed from the todo widget",
 			options: [
 				{ value: "0", label: "Instant" },
-				{ value: "60", label: "1 minute", description: "Default" },
+				{ value: "60", label: "1 minute" },
 				{ value: "300", label: "5 minutes" },
 				{ value: "900", label: "15 minutes" },
 				{ value: "1800", label: "30 minutes" },

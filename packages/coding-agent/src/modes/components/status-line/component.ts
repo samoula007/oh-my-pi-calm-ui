@@ -1881,6 +1881,19 @@ export class StatusLineComponent implements Component {
 			width: visibleWidth(content),
 		};
 	}
+	getActivityTopBorder(width: number): {
+		content: string;
+		width: number;
+		borderColor: (text: string) => string;
+	} {
+		const state = this.session.isStreaming ? "COOKING" : "RESTING";
+		const stateColor = this.session.isStreaming ? "accent" : "success";
+		const borderColor = (text: string): string => theme.fg(stateColor, text);
+		const label = theme.bold(` ${state.padEnd(7)} `);
+		const remaining = Math.max(0, width - visibleWidth(label));
+		const content = `${borderColor(label)}${borderColor(theme.boxRound.horizontal.repeat(remaining))}`;
+		return { content, width: visibleWidth(content), borderColor };
+	}
 
 	render(width: number): readonly string[] {
 		const lines: string[] = [];
@@ -1904,3 +1917,4 @@ export class StatusLineComponent implements Component {
 		return lines;
 	}
 }
+

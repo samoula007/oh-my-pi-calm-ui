@@ -248,7 +248,7 @@ describe("InteractiveMode todo HUD anchor", () => {
 				initialState: { model, systemPrompt: ["Test"], tools: [], messages: [] },
 			}),
 			sessionManager: SessionManager.create(tempDir.path(), tempDir.path()),
-			settings: Settings.isolated({}),
+			settings: Settings.isolated({ "tasks.todoClearDelay": -1 }),
 			modelRegistry,
 		});
 		mode = new InteractiveMode(session, "test");

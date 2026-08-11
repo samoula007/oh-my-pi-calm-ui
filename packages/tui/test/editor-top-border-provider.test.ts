@@ -74,6 +74,23 @@ describe("Editor lazy top-border provider (#4145)", () => {
 		expect(frame).toContain("eager");
 		expect(frame).not.toContain("lazy");
 	});
+	it("applies the provider border color to the full editor rail", () => {
+		const editor = new Editor(defaultEditorTheme);
+		editor.setTopBorderProvider(() => ({
+			content: "STATE",
+			width: 5,
+			borderColor: (text: string) => `\x1b[91m${text}\x1b[39m`,
+		}));
+
+		const frame = editor.render(80);
+		const topLine = frame[0] ?? "";
+		const bottomLine = frame.at(-1) ?? "";
+		expect(topLine).toContain("\x1b[91m+");
+		expect(topLine).toContain("\x1b[39mSTATE");
+		expect(topLine).toContain("\x1b[91m-");
+		expect(bottomLine).toContain("\x1b[91m+-");
+		expect(bottomLine).toContain("\x1b[91m -+");
+	});
 
 	it("passes the visually-available width (terminal width minus border chrome) to the provider", () => {
 		const editor = new Editor(defaultEditorTheme);

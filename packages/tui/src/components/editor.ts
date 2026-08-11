@@ -391,6 +391,8 @@ export interface EditorTopBorder {
 	content: string;
 	/** Visible width of the content */
 	width: number;
+	/** Optional color for the editor border when a top-border provider is active */
+	borderColor?: (text: string) => string;
 }
 
 interface HistoryEntry {
@@ -865,10 +867,14 @@ export class Editor implements Component, Focusable {
 		// Box-drawing characters for rounded corners
 		const box = this.#theme.symbols.boxRound;
 		const borderWidth = this.#getHorizontalChromeWidth(paddingX);
-		const topLeft = this.borderColor(`${box.topLeft}${box.horizontal.repeat(paddingX)}`);
-		const topRight = this.borderColor(`${box.horizontal.repeat(paddingX)}${box.topRight}`);
-		const bottomLeft = this.borderColor(`${box.bottomLeft}${box.horizontal}${padding(Math.max(0, paddingX - 1))}`);
-		const horizontal = this.borderColor(box.horizontal);
+		const topBorder = borderVisible
+			? this.#topBorderProvider
+				? this.#topBorderProvider(Math.max(0, width - borderWidth * 2))
+				: this.#topBorderContent
+			: undefined;
+		const borderColor = topBorder?.borderColor ?? this.borderColor;
+		const bottomLeft = borderColor(`${box.bottomLeft}${box.horizontal}${padding(Math.max(0, paddingX - 1))}`);
+		const horizontal = borderColor(box.horizontal);
 
 		// Layout the text
 		const layoutLines = this.#layoutText(layoutWidth);
@@ -900,19 +906,20 @@ export class Editor implements Component, Focusable {
 			// Provider (lazy) wins over eager content — a host that installs both
 			// wants the coalesced path; falling back to eager keeps existing
 			// setTopBorder callers working unchanged.
-			const topBorder = this.#topBorderProvider ? this.#topBorderProvider(topFillWidth) : this.#topBorderContent;
+			const topLeft = borderColor(`${box.topLeft}${box.horizontal.repeat(paddingX)}`);
+			const topRight = borderColor(`${box.horizontal.repeat(paddingX)}${box.topRight}`);
 			if (topBorder) {
 				const { content, width: statusWidth } = topBorder;
 				if (statusWidth <= topFillWidth) {
 					// Status fits - add fill after it
 					const fillWidth = topFillWidth - statusWidth;
-					result.push(topLeft + content + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+					result.push(topLeft + content + borderColor(box.horizontal.repeat(fillWidth)) + topRight);
 				} else {
 					// Status too long - truncate it
 					const truncated = truncateToWidth(content, Math.max(0, topFillWidth - 1));
 					const truncatedWidth = visibleWidth(truncated);
 					const fillWidth = Math.max(0, topFillWidth - truncatedWidth);
-					result.push(topLeft + truncated + this.borderColor(box.horizontal.repeat(fillWidth)) + topRight);
+					result.push(topLeft + truncated + borderColor(box.horizontal.repeat(fillWidth)) + topRight);
 				}
 			} else {
 				result.push(topLeft + horizontal.repeat(topFillWidth) + topRight);
@@ -1101,8 +1108,8 @@ export class Editor implements Component, Focusable {
 			const isLastLine = visibleIndex === visibleLayoutLines.length - 1;
 			const rightChromeCells = Math.max(1, paddingX + 1 - cursorPaddingOverflow);
 			if (isLastLine && imeSafeCursorTail) {
-				const leftBorder = this.borderColor(`${box.vertical}${padding(paddingX)}`);
-				const bottomBorder = this.borderColor(
+				const leftBorder = borderColor(`${box.vertical}${padding(paddingX)}`);
+				const bottomBorder = borderColor(
 					`${box.bottomLeft}${box.horizontal.repeat(Math.max(0, width - 2))}${box.bottomRight}`,
 				);
 				result.push(leftBorder + displayText);
@@ -1112,17 +1119,17 @@ export class Editor implements Component, Focusable {
 			if (isLastLine) {
 				const rightPad = Math.max(0, rightChromeCells - 2);
 				const includeHorizontal = rightChromeCells >= 2;
-				const bottomRightAdjusted = this.borderColor(
+				const bottomRightAdjusted = borderColor(
 					`${padding(rightPad)}${includeHorizontal ? box.horizontal : ""}${box.bottomRight}`,
 				);
 				result.push(`${bottomLeft}${displayText}${linePad}${bottomRightAdjusted}`);
 			} else {
-				const leftBorder = this.borderColor(`${box.vertical}${padding(paddingX)}`);
+				const leftBorder = borderColor(`${box.vertical}${padding(paddingX)}`);
 				// When scrollbar is active, replace the right border vertical with a
 				// thumb glyph (█) on lines inside the thumb range, keeping the track (│) elsewhere.
 				const inThumb = scrollbarThumb && visibleIndex >= scrollbarThumb.start && visibleIndex < scrollbarThumb.end;
 				const rightGlyph = inThumb ? "█" : box.vertical;
-				const rightBorder = this.borderColor(`${padding(Math.max(0, rightChromeCells - 1))}${rightGlyph}`);
+				const rightBorder = borderColor(`${padding(Math.max(0, rightChromeCells - 1))}${rightGlyph}`);
 				result.push(leftBorder + displayText + linePad + rightBorder);
 			}
 		}

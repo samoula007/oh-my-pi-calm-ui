@@ -11,10 +11,12 @@ function makeSessionWithLastMessage(
 		cost = 0,
 		advisorCost = 0,
 		usingSubscription = false,
-	}: { cost?: number; advisorCost?: number; usingSubscription?: boolean } = {},
+		isStreaming = false,
+	}: { cost?: number; advisorCost?: number; usingSubscription?: boolean; isStreaming?: boolean } = {},
 ) {
 	return {
 		messages: lastMessage ? [lastMessage] : [],
+		isStreaming,
 		model: { contextWindow: 128000 },
 		contextUsageRevision: 0,
 		systemPrompt: [],
@@ -92,6 +94,22 @@ describe("StatusLineComponent", () => {
 		// SGR codes might be included, so we check if the stripped content contains "Prewalk"
 		const stripped = border.content.replace(/\x1b\[[0-9;]*m/g, "");
 		expect(stripped).toContain("Prewalk");
+	});
+	it("renders a fixed cooking or resting state in the editor top border", () => {
+		const running = new StatusLineComponent(
+			makeSessionWithLastMessage(null, false, { isStreaming: true }) as unknown as AgentSession,
+		);
+		const ready = new StatusLineComponent(
+			makeSessionWithLastMessage(null, false, { isStreaming: false }) as unknown as AgentSession,
+		);
+		const runningRail = running.getActivityTopBorder(120).content.replace(/\x1b\[[0-9;]*m/g, "");
+		const readyRail = ready.getActivityTopBorder(120).content.replace(/\x1b\[[0-9;]*m/g, "");
+
+		expect(runningRail.slice(0, 9)).toBe(" COOKING ");
+		expect(readyRail.slice(0, 9)).toBe(" RESTING ");
+		expect(running.getActivityTopBorder(120).content).not.toBe(ready.getActivityTopBorder(120).content);
+		expect(running.getActivityTopBorder(120).width).toBe(120);
+		expect(ready.getActivityTopBorder(120).width).toBe(120);
 	});
 	it("renders primary and advisor costs separately", () => {
 		const statusLine = new StatusLineComponent(

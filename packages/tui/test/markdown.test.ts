@@ -1022,6 +1022,22 @@ more text`,
 
 			expect(plainLines).toEqual([" ```sh", "cat <<'EOF'", "EOF", " ```"]);
 		});
+		it("can omit raw fence markers while retaining styled code", () => {
+			const markdown = new Markdown(
+				"```ts\nconst answer = 42;\n```",
+				0,
+				0,
+				defaultMarkdownTheme,
+				undefined,
+				2,
+				false,
+			);
+
+			const plainLines = markdown.render(80).map(line => stripVTControlCharacters(line).trimEnd());
+
+			expect(plainLines.some(line => line.includes("const answer = 42;"))).toBe(true);
+			expect(plainLines.some(line => line.trimStart().startsWith("```"))).toBe(false);
+		});
 
 		it("keeps literal code body rows unprefixed through nested container wrapping", () => {
 			const longCodeLine = "x".repeat(24);

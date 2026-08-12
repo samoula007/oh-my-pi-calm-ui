@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import type { AssistantMessage } from "@oh-my-pi/pi-ai";
-import { resetSettingsForTest, Settings } from "@oh-my-pi/pi-coding-agent/config/settings";
+import { resetSettingsForTest, Settings, settings } from "@oh-my-pi/pi-coding-agent/config/settings";
 import {
 	AssistantMessageComponent,
 	resetThinkingSpeedTracker,
@@ -32,6 +32,15 @@ function erroredMessage(errorMessage: string): AssistantMessage {
 		timestamp: Date.now(),
 	};
 }
+function timedMessage(duration: number): AssistantMessage {
+	return {
+		...erroredMessage(""),
+		content: [{ type: "text", text: "Visible answer" }],
+		stopReason: "stop",
+		errorMessage: undefined,
+		duration,
+	};
+}
 
 function renderLines(message: AssistantMessage, hideThinkingBlock = false): string[] {
 	const component = new AssistantMessageComponent(message, hideThinkingBlock);
@@ -47,6 +56,7 @@ beforeAll(async () => {
 beforeEach(async () => {
 	resetSettingsForTest();
 	await Settings.init({ inMemory: true });
+	settings.set("display.shimmer", "classic");
 	setTerminalImageProtocol(null);
 });
 
@@ -103,6 +113,52 @@ describe("AssistantMessageComponent error rendering", () => {
 		const lines = renderLines(erroredMessage("overloaded_error: Overloaded"));
 		expect(lines.some(line => line.includes("Error: overloaded_error: Overloaded"))).toBe(true);
 	});
+});
+
+describe("AssistantMessageComponent request duration", () => {
+	it("renders the completed model duration with useful precision", () => {
+		const lines = renderLines(timedMessage(65_000));
+		expect(lines.some(line => line.includes("Worked for 1m 5s"))).toBe(true);
+	});
+
+	it("preserves subsecond and hour-scale durations", () => {
+		expect(renderLines(timedMessage(500)).some(line => line.includes("Worked for 0.5s"))).toBe(true);
+		expect(renderLines(timedMessage(3_661_000)).some(line => line.includes("Worked for 1h 1m 1s"))).toBe(true);
+	});
+
+	it("does not render a timer on an in-flight partial", () => {
+		const component = new AssistantMessageComponent(undefined);
+		component.updateContent(timedMessage(12_345), { transient: true });
+		expect(Bun.stripANSI(component.render(RENDER_WIDTH).join("\n"))).not.toContain("Worked for");
+		component.dispose();
+	});
+
+	it("renders the timer when the stream transitions to its completed message", () => {
+		const component = new AssistantMessageComponent(undefined);
+		component.updateContent(timedMessage(12_345), { transient: true });
+		component.updateContent(timedMessage(12_345));
+		expect(Bun.stripANSI(component.render(RENDER_WIDTH).join("\n"))).toContain("Worked for 12s");
+		component.dispose();
+	});
+
+	it("appends the full prompt-to-answer duration to the final message", () => {
+		const component = new AssistantMessageComponent(timedMessage(12_345));
+		component.setTurnDuration(125_000);
+		const rendered = Bun.stripANSI(component.render(RENDER_WIDTH).join("\n"));
+		expect(rendered).toContain("Worked for 12s");
+		expect(rendered).toContain("Total time: 2m 5s");
+		component.dispose();
+	});
+});
+it("renders assistant code without raw fence markers", () => {
+	const message = {
+		...timedMessage(0),
+		content: [{ type: "text", text: "```ts\nconst answer = 42;\n```" }],
+		duration: undefined,
+	} satisfies AssistantMessage;
+	const lines = renderLines(message);
+	expect(lines.some(line => line.includes("const answer = 42;"))).toBe(true);
+	expect(lines.some(line => line.trimStart().startsWith("```"))).toBe(false);
 });
 
 describe("AssistantMessageComponent hidden thinking rendering", () => {

@@ -148,6 +148,26 @@ class SpeedTracker {
 		this.#observations = [];
 	}
 }
+/**
+ * Format a completed model request duration for the per-message timer.
+ * Keep sub-second calls legible, retain seconds for normal turns, and avoid
+ * hiding useful detail on long-running requests.
+ */
+function formatLlmDuration(durationMs: number | undefined): string | undefined {
+	if (durationMs === undefined || !Number.isFinite(durationMs) || durationMs <= 0) return undefined;
+	if (durationMs < 10_000) return `${(durationMs / 1000).toFixed(1)}s`;
+
+	const totalSeconds = Math.round(durationMs / 1000);
+	if (totalSeconds < 60) return `${totalSeconds}s`;
+
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	if (minutes < 60) return `${minutes}m ${seconds}s`;
+
+	const hours = Math.floor(minutes / 60);
+	const remainingMinutes = minutes % 60;
+	return `${hours}h ${remainingMinutes}m ${seconds}s`;
+}
 
 /** One gauge for the whole session — see {@link SpeedTracker}. */
 const sharedSpeedTracker = new SpeedTracker();
@@ -183,6 +203,7 @@ export class AssistantMessageComponent extends Container {
 	#contentContainer: Container;
 	#markerSlot: Container;
 	#lastMessage?: AssistantMessage;
+	#turnDurationMs: number | undefined;
 	#toolImagesByCallId = new Map<string, ImageContent[]>();
 	#convertedKittyImages = new Map<string, ImageContent>();
 	#showImages = true;
@@ -306,6 +327,17 @@ export class AssistantMessageComponent extends Container {
 			this.#markerSlot.addChild(new CacheInvalidationMarkerComponent(info));
 		}
 		this.#blockVersion++;
+	}
+	/**
+	 * Attach the full prompt-to-answer duration to this assistant message.
+	 * This is separate from the provider duration shown for each model request.
+	 */
+	setTurnDuration(durationMs: number | undefined): void {
+		this.#turnDurationMs =
+			durationMs !== undefined && Number.isFinite(durationMs) && durationMs > 0 ? durationMs : undefined;
+		this.#fastPathKey = undefined;
+		this.#fastPathItems = undefined;
+		if (this.#lastMessage) this.updateContent(this.#lastMessage);
 	}
 
 	override invalidate(): void {
@@ -710,6 +742,8 @@ export class AssistantMessageComponent extends Container {
 	}
 
 	#canFastPath(message: AssistantMessage): boolean {
+		if (message.duration !== undefined && Number.isFinite(message.duration) && message.duration > 0) return false;
+
 		for (const content of message.content) {
 			if (content.type === "toolCall" || content.type === "image") return false;
 		}
@@ -879,7 +913,7 @@ export class AssistantMessageComponent extends Container {
 				// Set paddingY=0 to avoid extra spacing before tool executions
 				const trimmed = content.text.trim();
 				const mdOptions = this.#textColorTransform ? { color: this.#textColorTransform } : undefined;
-				const md = new Markdown(trimmed, 1, 0, getMarkdownTheme(), mdOptions, 0);
+				const md = new Markdown(trimmed, 1, 0, getMarkdownTheme(), mdOptions, 2, false, 96);
 				this.#contentContainer.addChild(md);
 				captureItems?.push({ md, contentIndex: i, blockType: "text", lastText: trimmed });
 				hasRenderedContent = true;
@@ -901,10 +935,19 @@ export class AssistantMessageComponent extends Container {
 					);
 
 				// Thinking traces in thinkingText color, italic
-				const md = new Markdown(thinkingText, 1, 0, getMarkdownTheme(), {
-					color: (text: string) => theme.fg("thinkingText", text),
-					italic: true,
-				});
+				const md = new Markdown(
+					thinkingText,
+					1,
+					0,
+					getMarkdownTheme(),
+					{
+						color: (text: string) => theme.fg("thinkingText", text),
+						italic: true,
+					},
+					2,
+					false,
+					96,
+				);
 				md.transientRenderCache = this.#lastUpdateTransient;
 				this.#contentContainer.addChild(md);
 				captureItems?.push({ md, contentIndex: i, blockType: "thinking", lastText: thinkingText });
@@ -953,6 +996,28 @@ export class AssistantMessageComponent extends Container {
 				}
 			}
 		}
+		// Provider duration is the model-request time; turn duration includes the
+		// complete prompt-to-answer lifecycle. Keep both on one compact line so the
+		// total is prominent without making every assistant turn taller.
+		if (!this.#lastUpdateTransient) {
+			const duration = formatLlmDuration(message.duration);
+			const totalDuration = formatLlmDuration(this.#turnDurationMs);
+			if (duration !== undefined || totalDuration !== undefined) {
+				const parts: string[] = [];
+				if (duration !== undefined) {
+					parts.push(theme.fg("dim", `${theme.icon.time} Worked for ${duration}`));
+				}
+				if (duration !== undefined && totalDuration !== undefined) {
+					parts.push(theme.fg("dim", " · "));
+				}
+				if (totalDuration !== undefined) {
+					parts.push(theme.fg("accent", `${theme.icon.time} Total time: ${totalDuration}`));
+				}
+				this.#contentContainer.addChild(new Spacer(1));
+				this.#contentContainer.addChild(new Text(parts.join(""), 1, 0));
+			}
+		}
+
 		// Store fast-path state for next call
 		if (shouldCapture) {
 			this.#fastPathItems = captureItems;

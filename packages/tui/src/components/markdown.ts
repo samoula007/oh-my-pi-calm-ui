@@ -1373,6 +1373,7 @@ interface RenderSignature {
 	paddingX: number;
 	paddingY: number;
 	codeBlockIndent: number;
+	showCodeFences: boolean;
 	themeId: number;
 	defaultTextStyleId: number;
 	imageProtocol: string;
@@ -1421,6 +1422,10 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 	#defaultStylePrefix?: string;
 	/** Number of spaces used to indent code block content. */
 	#codeBlockIndent: number;
+	/** Whether fenced code blocks retain their raw opening and closing fences. */
+	#showCodeFences: boolean;
+	/** Optional readable measure for prose-heavy messages. */
+	#maxWidth?: number;
 
 	// Cache for rendered output. Cached arrays are shared and returned by
 	// reference (render contract: results are component-owned and immutable to
@@ -1484,6 +1489,8 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 		theme: MarkdownTheme,
 		defaultTextStyle?: DefaultTextStyle,
 		codeBlockIndent: number = 2,
+		showCodeFences: boolean = true,
+		maxWidth?: number,
 	) {
 		this.#text = normalizeOsc8Terminators(text);
 		this.#paddingX = paddingX;
@@ -1491,6 +1498,9 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 		this.#theme = theme;
 		this.#defaultTextStyle = defaultTextStyle;
 		this.#codeBlockIndent = Math.max(0, Math.floor(codeBlockIndent));
+		this.#showCodeFences = showCodeFences;
+		this.#maxWidth =
+			maxWidth !== undefined && Number.isFinite(maxWidth) ? Math.max(1, Math.floor(maxWidth)) : undefined;
 	}
 
 	setText(text: string): boolean {
@@ -1634,6 +1644,7 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 	}
 
 	render(width: number): readonly string[] {
+		width = Math.max(1, this.#maxWidth === undefined ? width : Math.min(width, this.#maxWidth));
 		if (this.#tableLayoutWidth !== undefined && this.#tableLayoutWidth !== width) {
 			this.#clearTableLayouts();
 			this.invalidate();
@@ -1750,6 +1761,7 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 			paddingX,
 			paddingY: this.#paddingY,
 			codeBlockIndent: this.#codeBlockIndent,
+			showCodeFences: this.#showCodeFences,
 			themeId: objectId(this.#theme),
 			defaultTextStyleId: this.#defaultTextStyle ? objectId(this.#defaultTextStyle) : -1,
 			imageProtocol: TERMINAL.imageProtocol ?? "",
@@ -1761,7 +1773,7 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 	}
 
 	#renderCacheKey(normalizedText: string, signature: RenderSignature): string {
-		return `${normalizedText}\x00${signature.width}\x00${signature.paddingX}\x00${signature.paddingY}\x00${signature.codeBlockIndent}\x00${signature.themeId}\x00${signature.defaultTextStyleId}\x00${signature.imageProtocol}\x00${signature.hyperlinks ? 1 : 0}\x00${signature.textSizing ? 1 : 0}\x00${signature.bgColorProbe}\x00${signature.headingProbe}`;
+		return `${normalizedText}\x00${signature.width}\x00${signature.paddingX}\x00${signature.paddingY}\x00${signature.codeBlockIndent}\x00${signature.showCodeFences ? 1 : 0}\x00${signature.themeId}\x00${signature.defaultTextStyleId}\x00${signature.imageProtocol}\x00${signature.hyperlinks ? 1 : 0}\x00${signature.textSizing ? 1 : 0}\x00${signature.bgColorProbe}\x00${signature.headingProbe}`;
 	}
 
 	#renderStreamingContentLines(
@@ -1861,6 +1873,7 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 		if (cache.codeBlockIndent !== signature.codeBlockIndent) return undefined;
 		if (cache.themeId !== signature.themeId) return undefined;
 		if (cache.defaultTextStyleId !== signature.defaultTextStyleId) return undefined;
+		if (cache.showCodeFences !== signature.showCodeFences) return undefined;
 		if (cache.imageProtocol !== signature.imageProtocol) return undefined;
 		if (cache.hyperlinks !== signature.hyperlinks) return undefined;
 		if (cache.textSizing !== signature.textSizing) return undefined;
@@ -2091,6 +2104,7 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 			cache.codeBlockIndent === signature.codeBlockIndent &&
 			cache.themeId === signature.themeId &&
 			cache.defaultTextStyleId === signature.defaultTextStyleId &&
+			cache.showCodeFences === signature.showCodeFences &&
 			cache.imageProtocol === signature.imageProtocol &&
 			cache.hyperlinks === signature.hyperlinks &&
 			cache.textSizing === signature.textSizing &&
@@ -2306,11 +2320,15 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 				}
 
 				const codeIndent = padding(this.#codeBlockIndent);
-				lines.push(renderedLine(this.#theme.codeBlockBorder(`\`\`\`${token.lang || ""}`)));
+				if (this.#showCodeFences) {
+					lines.push(renderedLine(this.#theme.codeBlockBorder(`\`\`\`${token.lang || ""}`)));
+				}
 				for (const bodyLine of this.#renderCodeBodyLines(token, codeIndent)) {
 					lines.push(bodyLine);
 				}
-				lines.push(renderedLine(this.#theme.codeBlockBorder("```")));
+				if (this.#showCodeFences) {
+					lines.push(renderedLine(this.#theme.codeBlockBorder("```")));
+				}
 				if (nextTokenType && nextTokenType !== "space") {
 					lines.push(renderedLine("")); // Add spacing after code blocks (unless space token follows)
 				}
@@ -2768,11 +2786,15 @@ export class Markdown implements Component, NativeScrollbackCommittedRows, Nativ
 			} else if (token.type === "code") {
 				// Code block in list item
 				const codeIndent = padding(this.#codeBlockIndent);
-				lines.push({ text: this.#theme.codeBlockBorder(`\`\`\`${token.lang || ""}`), nested: false });
+				if (this.#showCodeFences) {
+					lines.push({ text: this.#theme.codeBlockBorder(`\`\`\`${token.lang || ""}`), nested: false });
+				}
 				for (const bodyLine of this.#renderCodeBodyLines(token, codeIndent)) {
 					lines.push({ ...bodyLine, nested: false });
 				}
-				lines.push({ text: this.#theme.codeBlockBorder("```"), nested: false });
+				if (this.#showCodeFences) {
+					lines.push({ text: this.#theme.codeBlockBorder("```"), nested: false });
+				}
 			} else if (isMathToken(token)) {
 				// Display math block inside a list item: stack fractions / matrix rows.
 				const apply = styleContext?.applyText ?? ((t: string) => this.#applyDefaultStyle(t));

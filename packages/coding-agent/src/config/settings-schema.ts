@@ -1108,12 +1108,12 @@ export const SETTINGS_SCHEMA = {
 
 	hideThinkingBlock: {
 		type: "boolean",
-		default: false,
+		default: true,
 		ui: {
 			tab: "model",
 			group: "Thinking",
 			label: "Hide Thinking Blocks",
-			description: "Hide thinking blocks in assistant responses",
+			description: "Hide thinking blocks in assistant responses by default; press Ctrl+T to reveal them",
 		},
 	},
 	proseOnlyThinking: {

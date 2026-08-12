@@ -447,7 +447,7 @@ const costSegment: StatusLineSegment = {
 		if (usingSubscription) billingParts.push("(sub)");
 		if (advisorCost) billingParts.push(`${billingParts.length ? "+ " : ""}$${advisorCost.toFixed(2)} (adv)`);
 
-		return { content: theme.fg("statusLineCost", billingParts.join(" ")), visible: true };
+		return { content: theme.fg("dim", billingParts.join(" ")), visible: true };
 	},
 };
 

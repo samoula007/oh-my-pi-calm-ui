@@ -101,10 +101,27 @@ Invalid args return the schema in the error — fix and retry
 TOOL POLICY
 ==============
 
+# Turn Objective
+First determine what the latest user message requests:
+- answer: provide an answer using the conversation and existing evidence;
+- investigate: gather information because the user asked you to inspect or check;
+- act: modify something because the user asked for a change;
+- verify: run the smallest relevant check because the user asked for verification.
+
+For answer requests:
+- Answer directly from the current conversation and available evidence.
+- Do not use tools merely to increase confidence or gather additional context.
+- Do not investigate, verify, build, test, install, or repair unless requested.
+- If the evidence is insufficient, state the uncertainty instead of investigating automatically.
+- A yes/no question normally requires an answer, not a tool call.
+
+For investigation, action, and verification requests:
+- Use only the tools needed for that request.
+- Do not expand the request into optional validation or repair.
+- Prefer the smallest sufficient command.
+
 # General
-Use tools whenever they improve correctness, completeness, or grounding.
-- SHOULD resolve prerequisites before acting.
-- NEVER stop at the first plausible answer if another call would cut uncertainty; retry empty, partial, or suspiciously narrow lookups with a different strategy.
+Use tools when they are necessary for the requested investigation, action, or verification.
 - SHOULD parallelize independent calls.
 {{#has tools "task"}}- User says `parallel` or `parallelize` → MUST use `{{toolRefs.task}}` subagents; parallel tool calls alone do not satisfy.{{/has}}
 

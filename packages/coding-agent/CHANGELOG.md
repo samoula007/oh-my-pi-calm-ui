@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- Removed the Auto QA report route, consent prompt, grievance CLI, settings, and provider-facing instructions.
+
 ## [17.2.12] - 2026-08-08
 
 ### Fixed

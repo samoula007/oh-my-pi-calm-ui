@@ -187,16 +187,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Migrate a v17 leaf rename that used to nest under a boolean parent path
- * (`dev.autoqa.consent` → `dev.autoqaConsent`, `todo.reminders.max` →
- * `todo.remindersMax`). Pre-rename configs left the leaf beneath the parent,
- * so the parent path resolved to an object and truthy checks like
- * `isAutoQaEnabled` treated a consent-only container as "enabled".
+ * Migrate legacy nested settings whose parent paths remain valid booleans.
  *
- * Handles nested (`{ parent: { leaf } }`) and quoted-dotted (`"parent.leaf"`)
- * legacy sources. An explicit new key always wins; a separately configured
- * boolean parent is preserved; an irrecoverable object-valued parent (only ever
- * a container for the old leaf) is dropped so the schema default applies.
+ * An explicit new key always wins; a separately configured boolean parent is
+ * preserved; an irrecoverable object-valued parent is dropped so the schema
+ * default applies.
  */
 function migrateNestedLeafRename(
 	raw: RawSettings,
@@ -1786,17 +1781,6 @@ export class Settings {
 		if (tierTouched) raw.tier = tierObj;
 		delete raw.fastModeScope;
 
-		// v17 renames that used to nest under a boolean parent path:
-		//   dev.autoqa.consent -> dev.autoqaConsent
-		//   todo.reminders.max -> todo.remindersMax
-		migrateNestedLeafRename(
-			raw,
-			"dev",
-			"autoqa",
-			"consent",
-			"autoqaConsent",
-			value => value === "unset" || value === "granted" || value === "denied",
-		);
 		migrateNestedLeafRename(
 			raw,
 			"todo",

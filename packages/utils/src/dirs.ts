@@ -637,10 +637,6 @@ export function getDocsRsCacheDir(): string {
 	return dirs.rootSubdir("webcache", "cache");
 }
 
-/** Get the auto-QA grievances SQLite database path (~/.omp/autoqa.db; XDG: $XDG_DATA_HOME/omp/autoqa.db). */
-export function getAutoQaDbPath(): string {
-	return dirs.rootSubdir("autoqa.db", "data");
-}
 /**
  * Stable 7-character hex digest of an absolute filesystem path.
  *

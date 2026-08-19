@@ -1,4 +1,4 @@
-import { type AgentToolResult, ThinkingLevel } from "@oh-my-pi/pi-agent-core";
+import { ThinkingLevel } from "@oh-my-pi/pi-agent-core";
 import type { CompactionOutcome } from "@oh-my-pi/pi-agent-core/compaction";
 import { PASTE_CODE_LOGIN_PROVIDERS } from "@oh-my-pi/pi-ai";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
@@ -71,11 +71,8 @@ import {
 	setExcludedSearchProviders,
 	setImageProviderOrder,
 	setSearchProviderOrder,
-	type ToolSession,
 } from "../../tools";
-import { AskTool, type AskToolDetails, type AskToolInput } from "../../tools/ask";
 import { shortenPath } from "../../tools/render-utils";
-import { ToolAbortError } from "../../tools/tool-errors";
 import { copyToClipboard } from "../../utils/clipboard";
 import { repo } from "../../utils/git";
 import { setSessionTerminalTitle } from "../../utils/title-generator";
@@ -1224,21 +1221,11 @@ export class SelectorController {
 				realLeafId,
 				this.ctx.ui.terminal.rows,
 				async (entryId, options) => {
-					// Selecting the current leaf is normally a no-op (already there) —
-					// unless it's an `ask` toolResult, in which case the re-answer flow
-					// must still be allowed to reopen the picker even though the leaf
-					// doesn't move (chatgpt-codex review on #5895).
+					// Selecting the current leaf is a no-op.
 					if (entryId === realLeafId) {
-						const currentEntry = this.ctx.sessionManager.getEntry(entryId);
-						const currentIsAskResult =
-							currentEntry?.type === "message" &&
-							currentEntry.message.role === "toolResult" &&
-							currentEntry.message.toolName === "ask";
-						if (!currentIsAskResult) {
-							done();
-							this.ctx.showStatus("Already at this point");
-							return;
-						}
+						done();
+						this.ctx.showStatus("Already at this point");
+						return;
 					}
 
 					// Ask about summarization
@@ -1303,25 +1290,7 @@ export class SelectorController {
 						let result = await this.ctx.session.navigateTree(entryId, {
 							summarize: wantsSummary,
 							customInstructions,
-							allowAskReopen: true,
 						});
-
-						// Selecting an `ask` toolResult doesn't land the leaf directly —
-						// re-open the picker with the original questions first, then
-						// complete the navigation as a new sibling branch (issue #5642).
-						if (result.reopenAsk) {
-							const reanswer = await this.#reanswerAsk(result.reopenAsk.questions);
-							if (!reanswer) {
-								this.ctx.showStatus("Re-answer cancelled");
-								return;
-							}
-							result = await this.ctx.session.navigateTree(entryId, {
-								summarize: wantsSummary,
-								customInstructions,
-								allowAskReopen: true,
-								reanswerAskResult: reanswer,
-							});
-						}
 
 						if (result.aborted) {
 							// Summarization aborted - re-show tree selector
@@ -1342,15 +1311,6 @@ export class SelectorController {
 							this.ctx.editor.setDraft(result.editorText, result.editorImages);
 						}
 						this.ctx.showStatus("Navigated to selected point");
-
-						// Re-answering a past `ask` commits a new sibling answer but,
-						// unlike a live `ask`, leaves the agent idle. Resume it now —
-						// after the transcript rebuild above — so the model consumes the
-						// new answer without the resumed turn rendering against the stale
-						// pre-rebuild UI (issue #6483).
-						if (result.askReanswerCommitted) {
-							this.ctx.session.resumeAfterAskReanswer();
-						}
 					} catch (error) {
 						this.ctx.showError(error instanceof Error ? error.message : String(error));
 					} finally {
@@ -1373,51 +1333,6 @@ export class SelectorController {
 			);
 			return { component: selector, focus: selector };
 		});
-	}
-
-	/**
-	 * Re-open the `ask` picker with the original `questions` (issue #5642):
-	 * runs a standalone `AskTool.execute()` outside a normal agent turn,
-	 * reusing the same picker/dialog primitives a live `ask` tool call gets.
-	 * Returns `undefined` when the user cancels — mirrors `navigateTree`'s
-	 * cancellation contract instead of throwing.
-	 */
-	async #reanswerAsk(questions: AskToolInput["questions"]): Promise<AgentToolResult<AskToolDetails> | undefined> {
-		const uiContext = this.ctx.getToolUIContext();
-		if (!uiContext) {
-			this.ctx.showError("Ask tool UI is not ready");
-			return undefined;
-		}
-		const toolSession: ToolSession = {
-			cwd: this.ctx.sessionManager.getCwd(),
-			hasUI: true,
-			settings: this.ctx.settings,
-			getSessionFile: () => this.ctx.sessionManager.getSessionFile() ?? null,
-			getSessionSpawns: () => null,
-			getPlanModeState: () => this.ctx.session.getPlanModeState(),
-		};
-		const askTool = new AskTool(toolSession);
-		const context = this.ctx.session.buildAskReanswerContext(uiContext);
-		let result: AgentToolResult<AskToolDetails>;
-		try {
-			result = await askTool.execute("tree-reanswer", { questions }, undefined, undefined, context);
-		} catch (error) {
-			if (error instanceof ToolAbortError) return undefined;
-			throw error;
-		}
-		// The rich ask dialog can race a collab guest choosing "Chat about this"
-		// (`AskTool`'s `chatRedirect` result); that's meaningful inside a live
-		// agent turn, where the model sees the redirect and starts a
-		// conversation, but this standalone re-answer has no turn to hand it
-		// to — completing the navigation with it would silently drop the
-		// user's intent to chat (roboomp review on #5895).
-		if (result.details?.chatRedirect) {
-			this.ctx.showError(
-				"Chat about this isn't available when re-answering from the tree — pick an option or type a custom answer instead.",
-			);
-			return undefined;
-		}
-		return result;
 	}
 
 	async showSessionSelector(source?: ForeignSessionSource): Promise<void> {

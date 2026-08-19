@@ -29,7 +29,7 @@ export interface HookEditorOptions {
 	maxHeight?: number;
 }
 
-/** Interactive multiline dialog used by hooks and the ask tool's Other response. */
+/** Interactive multiline dialog used by hooks and extension UI. */
 export class HookEditorComponent extends Container implements Focusable {
 	#editor: Editor;
 	#onSubmitCallback: (value: string) => void;

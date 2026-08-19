@@ -415,7 +415,7 @@ export function createAcpSessionFactory(args: AcpSessionFactoryOptions): AcpSess
 			modelRegistry: args.modelRegistry,
 			agentId,
 			// Preserve reserve-policy confirmation until ACP capabilities are known
-			// without enabling AskTool or other UI-only session behavior.
+			// without enabling other UI-only session behavior.
 			deferUsageReserveConfirmation: true,
 			enableMCP: false,
 			titleSystemPrompt,

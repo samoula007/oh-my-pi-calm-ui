@@ -692,8 +692,6 @@ For a custom status line, set `statusLine.preset: custom` and configure `statusL
 | `interruptMode`      | enum    | `immediate`     | `immediate`, `wait`.                                                                                    |
 | `doubleEscapeAction` | enum    | `tree`          | `branch`, `tree`, `none`.                                                                               |
 | `autoResume`         | boolean | `false`         | Auto-resume the most recent session in the cwd.                                                         |
-| `ask.timeout`        | number  | `0`             | Seconds before an `ask` prompt times out; `0` = no timeout. (Legacy ms values are migrated to seconds.) |
-| `ask.notify`         | enum    | `on`            | `on`, `off`.                                                                                            |
 
 ### Providers and services
 
@@ -780,7 +778,6 @@ Applied whenever raw settings are loaded (global, project, overlays, and runtime
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `inspect_image.enabled` boolean                                          | `inspect_image.mode` (`true` → `on`, `false` → `off`)                                                        |
 | `queueMode`                                                              | `steeringMode`                                                                                               |
-| `ask.timeout` in milliseconds (value `> 1000`)                           | seconds (divided by 1000)                                                                                    |
 | flat `theme: "<name>"` string                                            | `theme.dark` / `theme.light` (slot chosen by luminance; built-in `light`/`dark` are dropped to use defaults) |
 | `task.isolation.enabled: true/false`                                     | `task.isolation.mode: auto/none`                                                                             |
 | `task.simple`                                                            | removed                                                                                                      |

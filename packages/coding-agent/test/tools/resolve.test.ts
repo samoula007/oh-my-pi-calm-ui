@@ -189,7 +189,6 @@ describe("device tool-call predicates", () => {
 	it("matches only writes targeting xd://propose for plan decisions", () => {
 		expect(isProposeToolCall({ name: "write", arguments: { path: PROPOSE_DEVICE_PATH } })).toBe(true);
 		expect(isProposeToolCall({ name: "write", arguments: { path: RESOLVE_DEVICE_PATH } })).toBe(false);
-		expect(isProposeToolCall({ name: "ask", arguments: {} })).toBe(false);
 	});
 });
 

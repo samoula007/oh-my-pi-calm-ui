@@ -72,18 +72,17 @@ There are three leaf movement primitives:
 Flow:
 
 1. Validate the target and compute the abandoned path (`collectEntriesForBranchSummary`).
-2. For an interactive selection of an `ask` tool result whose original questions can be recovered, return a `reopenAsk` request without mutating the tree. The selector re-opens the question UI, then calls `navigateTree` again with the replacement result; that second call appends a new sibling `toolResult` at the original answer's parent.
-3. Emit `session_before_tree` with `TreePreparation`.
-4. Optionally summarize abandoned entries (hook-provided summary or built-in summarizer).
-5. Compute the new leaf target:
+2. Emit `session_before_tree` with `TreePreparation`.
+3. Optionally summarize abandoned entries (hook-provided summary or built-in summarizer).
+4. Compute the new leaf target:
    - selecting a **user** message: leaf moves to its parent, and message text plus image attachments are returned for editor draft restoration
    - selecting a **custom_message** other than a skill-prompt injection: same parent/prefill rule (text only)
    - selecting a skill-prompt custom message or any other entry: leaf = selected entry id
-6. Apply leaf move:
+5. Apply leaf move:
    - with summary: `branchWithSummary(newLeafId, ...)`
    - without summary and `newLeafId === null`: `resetLeaf()`
    - otherwise: `branch(newLeafId)`
-7. Rebuild agent context from the new leaf, reset branch-scoped todo/advisor/checkpoint state, close Codex provider sessions whose history was rewritten, and emit `session_tree`.
+6. Rebuild agent context from the new leaf, reset branch-scoped todo/advisor/checkpoint state, close Codex provider sessions whose history was rewritten, and emit `session_tree`.
 
 Important: summary entries are attached at the **new navigation position**, not on the abandoned branch tail.
 

@@ -505,13 +505,9 @@ Inside `pi-natives`, the per-module breakdown (glue and tests omitted):
 
 Same engine, four wrappers. `omp` runs the TUI. `omp -p` answers a single prompt and exits. The Node SDK embeds the session in your process. `omp --mode rpc` and `omp acp` hand the wheel to another program over stdio.
 
-### Interactive — when in doubt, the agent asks
+### Interactive — direct clarification in conversation
 
-The TUI is the default surface. Tool calls render as cards, edits preview before they land, and ambiguity routes through the `ask` tool — a structured option picker the agent can call mid-turn. The keyboard handles the rest.
-
-The same prompt cards surface over ACP, so editors get the picker without writing one.
-
-![omp TUI: the ask tool renders an option picker with three choices, a (Recommended) badge on the first, and 'up/down navigate · enter select · esc cancel' footer.](https://omp.sh/captures/ask.webp)
+The TUI is the default surface. Tool calls render as cards, edits preview before they land, and ambiguity stays in the normal assistant/user conversation instead of opening a structured question picker.
 
 ### SDK — embed in Node
 

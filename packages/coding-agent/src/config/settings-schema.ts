@@ -1948,36 +1948,6 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
-	"ask.timeout": {
-		type: "number",
-		default: 0,
-		ui: {
-			tab: "interaction",
-			group: "Notifications",
-			label: "Ask Timeout",
-			description: "Auto-select the recommended ask option after this many seconds (0 disables)",
-			options: [
-				{ value: "0", label: "Disabled" },
-				{ value: "15", label: "15 seconds" },
-				{ value: "30", label: "30 seconds" },
-				{ value: "60", label: "60 seconds" },
-				{ value: "120", label: "120 seconds" },
-			],
-		},
-	},
-
-	"ask.notify": {
-		type: "enum",
-		values: ["on", "off"] as const,
-		default: "on",
-		ui: {
-			tab: "interaction",
-			group: "Notifications",
-			label: "Ask Notification",
-			description: "Notify when the ask tool is waiting for input",
-		},
-	},
-
 	"recap.enabled": {
 		type: "boolean",
 		default: true,
@@ -4097,17 +4067,6 @@ export const SETTINGS_SCHEMA = {
 		},
 	},
 
-	"ask.enabled": {
-		type: "boolean",
-		default: true,
-		ui: {
-			tab: "tools",
-			group: "Available Tools",
-			label: "Ask",
-			description: "Enable the ask tool for interactive user questions",
-		},
-	},
-
 	"browser.enabled": {
 		type: "boolean",
 		default: true,
@@ -5535,7 +5494,6 @@ export const SETTINGS_SCHEMA = {
 	"commit.mapReduceMaxConcurrency": { type: "number", default: 5 },
 
 	"commit.changelogMaxDiffChars": { type: "number", default: 120000 },
-
 
 	"gc.blobs": { type: "boolean", default: true },
 

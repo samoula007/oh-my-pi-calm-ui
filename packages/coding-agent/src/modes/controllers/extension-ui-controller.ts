@@ -71,11 +71,7 @@ export class ExtensionUiController {
 	// the rest queue. See `#presentDialog`.
 	#dialogActive = false;
 	#dialogQueue: Array<() => void> = [];
-	/**
-	 * Built once in `initHooksAndCustomTools()`. Reused directly by `/tree`
-	 * `ask` re-answer (issue #5642) to drive a standalone `AskTool.execute()`
-	 * call with the same picker/dialog primitives a live tool call would get.
-	 */
+	/** Built once in `initHooksAndCustomTools()` and reused by extension UI methods. */
 	#toolUIContext: ExtensionUIContext | undefined;
 	constructor(private ctx: InteractiveModeContext) {}
 
@@ -296,13 +292,7 @@ export class ExtensionUiController {
 		});
 	}
 
-	/**
-	 * The `ExtensionUIContext` built in `initHooksAndCustomTools()` — the same
-	 * picker/dialog primitives passed as `context.ui` for every live tool
-	 * call. `/tree` `ask` re-answer (issue #5642) reuses this to drive a
-	 * standalone `AskTool.execute()` call outside a normal agent turn.
-	 * `undefined` before hooks have initialized.
-	 */
+	/** Return the live extension UI context, or `undefined` before hooks initialize. */
 	getToolUIContext(): ExtensionUIContext | undefined {
 		return this.#toolUIContext;
 	}

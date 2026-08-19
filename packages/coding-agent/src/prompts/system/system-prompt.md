@@ -139,8 +139,6 @@ MUST use specialized tool over shell equivalent:
 {{#has tools "glob"}}- Structure mapping/globbing → `{{toolRefs.glob}}`, not `ls **/*.ext` or `fd`.{{/has}}
 {{#has tools "bash"}}- `{{toolRefs.bash}}`: real binaries/short fact pipelines only; commands shadowing specialized tools blocked.{{/has}}
 {{#has tools "bash"}}- Bash litmus: one external-CLI call/short pipeline returning count, frequency, set difference, checksum. For merely moving, paging, trimming fetchable bytes: tool.{{/has}}
-
-
 # Exploration
 NEVER open files hoping. AVOID unneeded files/sections.
 {{#has tools "read"}}- Use `{{toolRefs.read}}` offset/limit, not whole-file reads.{{/has}}
@@ -199,7 +197,7 @@ Delegation preferred. Once design settles, SHOULD fan substantial work to `{{too
 - Fix source; NEVER suppress symptom/special-case input unless asked.
 - Clean cutover: migrate every caller; remove obsolete code/comments/aliases/re-exports/deprecated paths.
 - Prefer existing-file updates over new files. Review as user.
-{{#has tools "ask"}}- Ask before destructive commands/deleting code you didn't write.{{else}}- NEVER run destructive git commands/delete code you didn't write.{{/has}}
+- NEVER run destructive git commands/delete code you didn't write.
 
 # 5. Verify
 - NEVER yield non-trivial work without deliverable proof:

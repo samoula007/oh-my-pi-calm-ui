@@ -3,7 +3,6 @@
  * transcript names renderable. Unknown tools fall back to the generic JSON renderer.
  */
 import { genericRenderer } from "./generic";
-import { askRenderer } from "./tools/ask";
 import { astEditRenderer } from "./tools/ast-edit";
 import { astGrepRenderer } from "./tools/ast-grep";
 import { bashRenderer } from "./tools/bash";
@@ -35,7 +34,6 @@ import { yieldRenderer } from "./tools/yield";
 import type { ToolRenderer } from "./types";
 
 const RENDERERS: Record<string, ToolRenderer> = {
-	ask: askRenderer,
 	ast_edit: astEditRenderer,
 	ast_grep: astGrepRenderer,
 	bash: bashRenderer,

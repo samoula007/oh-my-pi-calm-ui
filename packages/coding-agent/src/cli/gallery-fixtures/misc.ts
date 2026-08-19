@@ -1,75 +1,7 @@
-/** Gallery fixtures for the ask / ssh / github / inspect_image tools. */
+/** Gallery fixtures for the ssh / github / inspect_image tools. */
 import type { GalleryFixture } from "./types";
 
 export const miscFixtures: Record<string, GalleryFixture> = {
-	ask: {
-		label: "Ask",
-		streamingArgs: {
-			questions: [
-				{
-					id: "db",
-					question: "Which database should the new service use?",
-					options: [{ label: "Postgres" }],
-				},
-			],
-		},
-		args: {
-			questions: [
-				{
-					id: "db",
-					question: "Which database should the new service use?",
-					options: [
-						{ label: "Postgres", description: "Relational, strong consistency, JSONB support" },
-						{ label: "SQLite", description: "Embedded, zero-ops, great for single-node" },
-						{ label: "MongoDB", description: "Document store, flexible schema" },
-					],
-					recommended: 0,
-				},
-				{
-					id: "features",
-					question: "Which auth flows should ship in v1?",
-					options: [
-						{ label: "Email + password" },
-						{ label: "OAuth (Google, GitHub)" },
-						{ label: "Magic links" },
-						{ label: "SAML SSO", description: "Enterprise; can be deferred" },
-					],
-					multi: true,
-				},
-			],
-		},
-		result: {
-			content: [
-				{
-					type: "text",
-					text: "db: Postgres\nfeatures: Email + password, OAuth (Google, GitHub)",
-				},
-			],
-			details: {
-				results: [
-					{
-						id: "db",
-						question: "Which database should the new service use?",
-						options: ["Postgres", "SQLite", "MongoDB"],
-						multi: false,
-						selectedOptions: ["Postgres"],
-					},
-					{
-						id: "features",
-						question: "Which auth flows should ship in v1?",
-						options: ["Email + password", "OAuth (Google, GitHub)", "Magic links", "SAML SSO"],
-						multi: true,
-						selectedOptions: ["Email + password", "OAuth (Google, GitHub)"],
-					},
-				],
-			},
-		},
-		errorResult: {
-			content: [{ type: "text", text: "Prompt cancelled by user before any answer was given" }],
-			isError: true,
-		},
-	},
-
 	github: {
 		label: "GitHub",
 		streamingArgs: {

@@ -29,8 +29,6 @@ import {
 	type AgentMessage,
 	type AgentState,
 	type AgentTool,
-	type AgentToolCall,
-	type AgentToolContext,
 	type AgentToolResult,
 	type AgentTurnEndContext,
 	AppendOnlyContextManager,
@@ -71,7 +69,6 @@ import type {
 	TextContent,
 	ToolCall,
 	ToolChoice,
-	ToolResultMessage,
 	UsageReport,
 	UserMessage,
 } from "@oh-my-pi/pi-ai";
@@ -174,7 +171,6 @@ import vibeModeActivePrompt from "../prompts/system/vibe-mode-active.md" with { 
 import {
 	deobfuscateAssistantContent,
 	deobfuscateSessionContext,
-	deobfuscateToolArguments,
 	obfuscateProviderContext,
 } from "../secrets/message-transform";
 import type { SecretObfuscator } from "../secrets/obfuscator";
@@ -188,7 +184,6 @@ import {
 import { isLowSignalTitleInput } from "../tiny/text";
 import { shutdownTinyTitleClient } from "../tiny/title-client";
 import { resolveApproval } from "../tools/approval";
-import { type AskToolDetails, type AskToolInput, recoverAskQuestions } from "../tools/ask";
 import { releaseTabsForOwner } from "../tools/browser/tab-supervisor";
 import type { CheckpointState, CompletedRewindState } from "../tools/checkpoint";
 import { releaseComputerSessionsForOwner } from "../tools/computer/supervisor";
@@ -2672,10 +2667,7 @@ export class AgentSession {
 				await this.#goalRuntime.onToolCompleted(event.toolName);
 			}
 			this.#planModeReminderAwaitingProgress = false;
-			if (
-				event.toolName === "ask" ||
-				writeDeviceDispatch(event.toolName, event.result)?.tool === PROPOSE_DEVICE_NAME
-			) {
+			if (writeDeviceDispatch(event.toolName, event.result)?.tool === PROPOSE_DEVICE_NAME) {
 				this.#planModeReminderCount = 0;
 				this.#planModeReminderAwaitingProgress = false;
 			}
@@ -5150,10 +5142,8 @@ export class AgentSession {
 		const content = prompt.render(planModeActivePrompt, {
 			planFilePath: displayPlanPath,
 			planExists,
-			askToolName: "ask",
 			writeToolName: "write",
 			editToolName: "edit",
-			askAvailable: activeToolNames.includes("ask"),
 			taskAvailable: activeToolNames.includes("task"),
 			isHashlineEditMode: this.#resolveActiveEditMode() === "hashline",
 			reentry: state.reentry ?? false,
@@ -7222,9 +7212,9 @@ export class AgentSession {
 		this.#checkpointState = undefined;
 		this.#pendingRewindReport = undefined;
 	}
-	/** Plan-mode decision affordances: `ask`, or plan approval via `write xd://propose`. */
+	/** Plan-mode decision affordance: plan approval via `write xd://propose`. */
 	#isPlanDecisionTool(toolCall: { name: string; arguments?: Record<string, unknown> }): boolean {
-		return toolCall.name === "ask" || isProposeToolCall(toolCall);
+		return isProposeToolCall(toolCall);
 	}
 
 	async #enforcePlanModeDecisionAtSettle(): Promise<boolean> {
@@ -7259,9 +7249,9 @@ export class AgentSession {
 			logger.debug("Plan mode convergence: reminder cap reached; yielding to user");
 			return false;
 		}
-		const hasRequiredTools = this.#tools.registry.has("ask") && this.#tools.registry.has("write");
+		const hasRequiredTools = this.#tools.registry.has("write");
 		if (!hasRequiredTools) {
-			logger.warn("Plan mode enforcement skipped because ask/write tools are unavailable", {
+			logger.warn("Plan mode enforcement skipped because write tool is unavailable", {
 				activeToolNames: this.agent.state.tools.map(tool => tool.name),
 			});
 			return false;
@@ -7271,7 +7261,7 @@ export class AgentSession {
 		this.#planModeReminderAwaitingProgress = true;
 		this.#toolChoiceQueue.pushOnce("required", { label: "plan-mode-decision" });
 		const reminder = prompt.render(planModeToolDecisionReminderPrompt, {
-			askToolName: "ask",
+			writeToolName: "write",
 		});
 		const reminderMessage: Message = {
 			role: "developer",
@@ -8321,26 +8311,6 @@ export class AgentSession {
 		options: {
 			summarize?: boolean;
 			customInstructions?: string;
-			/**
-			 * Opts into the two-phase `ask` toolResult re-answer protocol
-			 * (issue #5642): set only by the interactive `/tree` selector, which
-			 * knows how to re-open the picker on `reopenAsk` and complete the
-			 * navigation with `reanswerAskResult`. Every other public caller
-			 * (extensions, hooks, ACP, session-extension actions) leaves this
-			 * unset and gets the pre-#5642 plain leaf move onto `ask`
-			 * toolResults instead — they have no picker to re-open and would
-			 * otherwise report a successful no-op navigation (roboomp review on
-			 * #5895).
-			 */
-			allowAskReopen?: boolean;
-			/**
-			 * Completes an in-progress `ask` re-answer (issue #5642): the caller
-			 * already received `reopenAsk` from a prior call on the same
-			 * `targetId`, re-opened the picker, and is handing back the fresh
-			 * answer. Branches a new toolResult sibling instead of landing on
-			 * the original one.
-			 */
-			reanswerAskResult?: AgentToolResult<AskToolDetails>;
 		} = {},
 	): Promise<{
 		editorText?: string;
@@ -8351,23 +8321,6 @@ export class AgentSession {
 		summaryEntry?: BranchSummaryEntry;
 		/** Raw session context built during navigation — pass to renderInitialMessages to skip a second O(N) walk. */
 		sessionContext?: SessionContext;
-		/**
-		 * Set when `targetId` is an `ask` toolResult, `options.allowAskReopen`
-		 * was set, and `options.reanswerAskResult` was not supplied: nothing was
-		 * mutated. The caller must re-open the ask picker with these
-		 * `questions`, then call `navigateTree(targetId, { ...options,
-		 * reanswerAskResult })` with the produced result to actually branch
-		 * (issue #5642).
-		 */
-		reopenAsk?: { toolCallId: string; questions: AskToolInput["questions"] };
-		/**
-		 * `true` when this call committed a new sibling answer for an `ask`
-		 * re-answer (`reanswerAskResult` was applied). The interactive caller
-		 * resumes the agent via {@link resumeAfterAskReanswer} *after* rebuilding
-		 * its transcript, so the resumed turn never renders against the stale
-		 * pre-rebuild UI (issue #6483).
-		 */
-		askReanswerCommitted?: boolean;
 	}> {
 		await this.#bash.flushPending();
 		const oldLeafId = this.sessionManager.getLeafId();
@@ -8376,19 +8329,8 @@ export class AgentSession {
 		if (!targetEntry) {
 			throw new Error(`Entry ${targetId} not found`);
 		}
-		const targetIsAskResult =
-			targetEntry.type === "message" &&
-			targetEntry.message.role === "toolResult" &&
-			targetEntry.message.toolName === "ask";
 
-		// No-op if already at target — except mid-flight through the `ask`
-		// re-answer protocol (issue #5642): a probe or completion call can
-		// legitimately target the *current* leaf (e.g. the user interrupted
-		// right after answering `ask`, before a follow-up assistant message
-		// landed, or another caller navigated straight onto the ask result),
-		// and must still return `reopenAsk` / branch the new answer instead of
-		// silently reporting a no-op (chatgpt-codex review on #5895).
-		if (targetId === oldLeafId && !(options.allowAskReopen && targetIsAskResult)) {
+		if (targetId === oldLeafId) {
 			return { cancelled: false };
 		}
 
@@ -8397,43 +8339,8 @@ export class AgentSession {
 			throw new Error("No model available for summarization");
 		}
 
-		// `ask` toolResult, first pass: hand control back to the caller to
-		// re-open the picker instead of landing on the stale answer in place.
-		// Nothing is mutated here — see the `reanswerAskResult` branch below for
-		// the actual sibling-branch construction once the caller has an answer.
-		// Gated on `allowAskReopen` — callers that don't understand `reopenAsk`
-		// fall straight through to the plain leaf move below instead of
-		// reporting a successful no-op (roboomp review on #5895).
-		if (
-			options.allowAskReopen &&
-			!options.reanswerAskResult &&
-			targetEntry.type === "message" &&
-			targetEntry.message.role === "toolResult" &&
-			targetEntry.message.toolName === "ask"
-		) {
-			const toolCallId = targetEntry.message.toolCallId;
-			const questions = this.#recoverAskReanswerQuestions(targetEntry.parentId, toolCallId);
-			if (questions) {
-				return { cancelled: false, reopenAsk: { toolCallId, questions } };
-			}
-			// Original arguments couldn't be recovered (corrupted/legacy session
-			// data) — fall through to a plain leaf move so navigation still works.
-		}
-
-		// Collect entries to summarize (from old leaf to common ancestor). For an
-		// `ask` re-answer completion, the branch point is `targetEntry.parentId`
-		// (the new sibling toolResult lands there, not on `targetId`) — anchor
-		// the collection there too, or the old answer entry is neither on the
-		// new branch nor included in the summary (chatgpt-codex review on
-		// #5895).
-		const summaryAnchorId =
-			options.reanswerAskResult !== undefined &&
-			targetEntry.type === "message" &&
-			targetEntry.message.role === "toolResult" &&
-			targetEntry.message.toolName === "ask" &&
-			targetEntry.parentId !== null
-				? targetEntry.parentId
-				: targetId;
+		// Collect entries to summarize (from old leaf to common ancestor).
+		const summaryAnchorId = targetId;
 		const { entries: entriesToSummarize, commonAncestorId } = collectEntriesForBranchSummary(
 			this.sessionManager,
 			oldLeafId,
@@ -8519,10 +8426,6 @@ export class AgentSession {
 		let newLeafId: string | null;
 		let editorText: string | undefined;
 		let editorImages: ImageContent[] | undefined;
-		// Set when the second-pass `ask` re-answer branch below actually commits a
-		// new sibling answer — the trigger for resuming the agent afterwards so the
-		// model consumes it, mirroring a live `ask` completion (issue #6483).
-		let isAskReanswerCompletion = false;
 
 		if (targetEntry.type === "message" && targetEntry.message.role === "user") {
 			// User message: leaf = parent (null if root), text goes to editor
@@ -8540,28 +8443,6 @@ export class AgentSession {
 							.filter((c): c is { type: "text"; text: string } => c.type === "text")
 							.map(c => c.text)
 							.join("");
-		} else if (
-			targetEntry.type === "message" &&
-			targetEntry.message.role === "toolResult" &&
-			targetEntry.message.toolName === "ask" &&
-			options.reanswerAskResult
-		) {
-			// `ask` toolResult, second pass: the caller re-opened the picker and
-			// is handing back a fresh answer. Branch a *new* sibling toolResult
-			// off the same `ask` toolCall instead of reusing `targetId` — the
-			// original answer's branch stays reachable (issue #5642).
-			const reanswer = options.reanswerAskResult;
-			const toolResultMessage: ToolResultMessage = {
-				role: "toolResult",
-				toolCallId: targetEntry.message.toolCallId,
-				toolName: "ask",
-				content: reanswer.content,
-				details: reanswer.details,
-				isError: reanswer.isError === true,
-				timestamp: Date.now(),
-			};
-			newLeafId = this.sessionManager.appendMessageToBranch(toolResultMessage, targetEntry.parentId);
-			isAskReanswerCompletion = true;
 		} else {
 			// Non-user message (or a user-invoked skill-prompt injection): land the
 			// leaf on the selected node so it stays on the active branch. Skill
@@ -8607,14 +8488,6 @@ export class AgentSession {
 
 		this.#branchSummaryAbortController = undefined;
 
-		// Report a committed `ask` re-answer so the interactive caller can resume
-		// the agent via `resumeAfterAskReanswer()` *after* rebuilding its
-		// transcript. Scheduling the continue here instead would start a fresh
-		// streaming turn whose `agent_start`/`turn_start` events could render
-		// against the stale pre-rebuild UI and then be clobbered by the caller's
-		// `renderInitialMessages(...)` (issue #6483). Plain leaf moves and the
-		// read-only `reopenAsk` probe leave the flag unset.
-
 		// Emit session_tree event; only handlers can mutate session entries, so skip
 		// the emit and the context rebuild when no handlers are registered (mirrors
 		// the session_before_tree guard above).
@@ -8633,7 +8506,6 @@ export class AgentSession {
 				cancelled: false,
 				summaryEntry,
 				sessionContext: rawContext,
-				askReanswerCommitted: isAskReanswerCompletion,
 			};
 		}
 		return {
@@ -8642,87 +8514,6 @@ export class AgentSession {
 			cancelled: false,
 			summaryEntry,
 			sessionContext: stateContext,
-			askReanswerCommitted: isAskReanswerCompletion,
-		};
-	}
-
-	/**
-	 * Resume the agent after the interactive `/tree` caller has committed an
-	 * `ask` re-answer (`navigateTree` returned `askReanswerCommitted`) and
-	 * rebuilt its transcript. Mirrors how a live `ask` completion drives a
-	 * follow-up turn, but is deferred to the caller so the resumed turn renders
-	 * against the rebuilt UI rather than the stale pre-navigation transcript
-	 * (issue #6483). The scheduled continue honors the same disposed/compacting
-	 * guards as every other post-prompt continuation.
-	 */
-	resumeAfterAskReanswer(): void {
-		this.#scheduleAgentContinue();
-	}
-
-	/**
-	 * Look up the `ask` toolCall's persisted `arguments` and validate them
-	 * back into `questions`, for `/tree` `ask` re-answer (issue #5642). Walks
-	 * up from the toolResult's parent past any interleaved ancestor entries
-	 * — sibling toolResults from other tool calls in the same turn (`ask`
-	 * runs `exclusive`, which only serializes *execution*, not persistence
-	 * order — roboomp review on #5895), and bookkeeping entries such as the
-	 * `tool_execution_start` custom entry `#recordToolExecutionStart()`
-	 * appends before every toolResult in real persisted sessions (chatgpt-codex
-	 * review on #5895) — until it finds the assistant entry that actually
-	 * emitted `toolCallId`. Stops at a `user` message (turn boundary) or a
-	 * dead end. Returns `undefined` when no ancestor entry holds a matching
-	 * `ask` toolCall, or the arguments can't be resolved — the caller falls
-	 * back to a plain leaf move rather than opening a picker with bad data.
-	 */
-	#recoverAskReanswerQuestions(parentId: string | null, toolCallId: string): AskToolInput["questions"] | undefined {
-		let current = parentId;
-		while (current !== null) {
-			const entry = this.sessionManager.getEntry(current);
-			if (!entry) return undefined;
-			if (entry.type === "message") {
-				if (entry.message.role === "assistant") {
-					const toolCall = entry.message.content.find(
-						(block): block is AgentToolCall => block.type === "toolCall" && block.id === toolCallId,
-					);
-					if (!toolCall) return undefined;
-					if (toolCall.name !== "ask") return undefined;
-					const args = this.#obfuscator?.hasSecrets()
-						? deobfuscateToolArguments(this.#obfuscator, toolCall.arguments)
-						: toolCall.arguments;
-					return recoverAskQuestions(args);
-				}
-				if (entry.message.role === "user") return undefined;
-			}
-			current = entry.parentId;
-		}
-		return undefined;
-	}
-
-	/**
-	 * Build a standalone `AgentToolContext` for running `AskTool.execute()`
-	 * outside a normal agent turn, for `/tree` `ask` re-answer (issue #5642).
-	 * `SelectorController` has no reachable `ToolContextStore` (that store is
-	 * built inside `sdk.ts` and never threaded through to mode controllers),
-	 * so this mirrors `refreshMCPTools()`'s `getCustomToolContext` factory
-	 * with real session state instead of a `{ ... } as unknown as
-	 * AgentToolContext` cast that could silently compile with an incomplete
-	 * context (roboomp review on #5895) — every `CustomToolContext` field is
-	 * backed by live session state, so a future required field fails to
-	 * compile here instead of surfacing as `undefined` at runtime.
-	 */
-	buildAskReanswerContext(uiContext: ExtensionUIContext): AgentToolContext {
-		return {
-			sessionManager: this.sessionManager,
-			modelRegistry: this.#modelRegistry,
-			model: this.model,
-			isIdle: () => !this.isStreaming,
-			hasQueuedMessages: () => this.queuedMessageCount > 0,
-			abort: () => {
-				this.agent.abort();
-			},
-			settings: this.settings,
-			ui: uiContext,
-			hasUI: true,
 		};
 	}
 

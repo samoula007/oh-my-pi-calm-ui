@@ -1,4 +1,4 @@
-/** Gallery fixtures for the todo / ask / resolve interaction tools. */
+/** Gallery fixtures for the todo / resolve interaction tools. */
 import type { GalleryFixture } from "./types";
 
 export const interactionFixtures: Record<string, GalleryFixture> = {

@@ -165,8 +165,8 @@ export interface ExtensionAskDialogSubmitResult {
 }
 
 /** Chat-redirect result: the user chose "Chat about this" instead of
- *  answering. Distinct from `undefined` (cancel) so AskTool can hand off to
- *  the chat loop rather than aborting. */
+ * answering. Distinct from `undefined` (cancel) so the dialog can hand off to
+ * the chat loop rather than aborting. */
 export interface ExtensionAskDialogChatResult {
 	kind: "chat";
 }

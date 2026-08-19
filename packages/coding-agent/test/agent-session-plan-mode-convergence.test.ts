@@ -145,25 +145,23 @@ describe("AgentSession plan-mode convergence", () => {
 		const model = getBundledModel("anthropic", "claude-sonnet-4-5");
 		if (!model) throw new Error("Expected bundled anthropic model to exist");
 
-		const askTool = makeTool("ask");
 		const writeTool = makeTool("write");
 		const readTool = makeTool("read");
 		const toolRegistry = new Map<string, AgentTool>([
-			["ask", askTool],
 			["write", writeTool],
 			["read", readTool],
 		]);
 		const initialTools = options?.planYolo
 			? options.initialPlanTools?.includes("write")
-				? [readTool, writeTool]
+				? [writeTool, readTool]
 				: [readTool]
-			: [askTool, writeTool, readTool];
+			: [writeTool, readTool];
 		let currentAgent: Agent | undefined;
 		const xdev: XdevState | undefined = options?.xdev
 			? {
+					builtInNames: new Set(["write", "read"]),
 					tools: toolRegistry,
 					mountedNames: new Set<string>(),
-					builtInNames: new Set(["ask", "write", "read"]),
 					isActive: name => currentAgent?.state.tools.some(tool => tool.name === name) ?? false,
 				}
 			: undefined;
@@ -204,7 +202,7 @@ describe("AgentSession plan-mode convergence", () => {
 			}),
 			modelRegistry,
 			toolRegistry,
-			builtInToolNames: ["ask", "write", "read"],
+			builtInToolNames: ["write", "read"],
 			advisorTools: [],
 			advisorStreamFn,
 			sideStreamFn,
@@ -334,33 +332,6 @@ describe("AgentSession plan-mode convergence", () => {
 		expect(harness.mock.calls.length).toBe(4);
 	});
 
-	it("T3c: an ask call resets the convergence counter", async () => {
-		const harness = await createPlanSession([
-			{ content: ["planning A"] },
-			{
-				content: [
-					{
-						type: "toolCall",
-						name: "ask",
-						arguments: {
-							questions: [
-								{ id: "q", question: "which?", options: [{ label: "a" }, { label: "b" }], recommended: 0 },
-							],
-						},
-					},
-				],
-			},
-			{ content: ["planning B"] },
-			{ content: ["planning C"] },
-		]);
-
-		await harness.session.prompt("make a plan");
-		await harness.session.waitForIdle();
-
-		expect(countReminders(harness.session.agent.state.messages)).toBe(2);
-		expect(harness.mock.calls.length).toBe(4);
-	});
-
 	it("restores the pre-plan tool set after PlanYolo approval", async () => {
 		const harness = await createPlanSession(
 			[
@@ -417,7 +388,7 @@ describe("AgentSession plan-mode convergence", () => {
 		await handler("mcp-devices");
 
 		expect(harness.session.getPlanModeState()).toBeUndefined();
-		expect(harness.session.getActiveToolNames()).toEqual(["read", "write", "mcp__context_query_docs"]);
+		expect(harness.session.getActiveToolNames()).toEqual(["write", "read", "mcp__context_query_docs"]);
 		expect(harness.session.getMountedXdevToolNames()).toEqual(["mcp__chrome_devtools_list_pages"]);
 		expect(harness.session.getSelectedMCPToolNames()).toEqual([
 			"mcp__context_query_docs",

@@ -78,7 +78,6 @@ ${chalk.bold("Available Tools (default-enabled unless noted):")}
   task          - Launch sub-agents for parallel tasks
   todo          - Manage todo/task lists
   web_search    - Search the web
-  ask           - Ask user questions (interactive mode only)
 
 ${chalk.bold("Plugin Options:")}
   --plugin-dir <path>        Load plugin from directory (repeatable)

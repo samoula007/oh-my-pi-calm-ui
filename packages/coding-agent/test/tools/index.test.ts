@@ -202,47 +202,12 @@ describe("createTools", () => {
 		expect(prewalkSubagent.map(t => t.name)).toContain("todo");
 	});
 
-	it("excludes ask tool when hasUI is false", async () => {
-		const session = createTestSession({ hasUI: false });
-		const tools = await createTools(session);
-		const names = tools.map(t => t.name);
+	it("never exposes the removed ask tool", async () => {
+		const interactiveTools = await createTools(createTestSession({ hasUI: true }));
+		expect(interactiveTools.map(tool => tool.name)).not.toContain("ask");
 
-		expect(names).not.toContain("ask");
-	});
-
-	it("includes ask tool when hasUI is true", async () => {
-		const session = createTestSession({ hasUI: true });
-		const tools = await createTools(session);
-		const names = tools.map(t => t.name);
-
-		expect(names).toContain("ask");
-	});
-
-	it("excludes ask tool when ask.enabled is false", async () => {
-		const session = createTestSession({
-			hasUI: true,
-			settings: createSettingsWithOverrides({ "ask.enabled": false }),
-		});
-		const tools = await createTools(session);
-		expect(tools.map(t => t.name)).not.toContain("ask");
-
-		const requested = await createTools(
-			createTestSession({
-				hasUI: true,
-				settings: createSettingsWithOverrides({ "ask.enabled": false }),
-			}),
-			["ask", "read"],
-		);
-		expect(requested.map(t => t.name)).toEqual(["read"]);
-	});
-
-	it("includes ask tool when ask.enabled is true and hasUI is true", async () => {
-		const session = createTestSession({
-			hasUI: true,
-			settings: createSettingsWithOverrides({ "ask.enabled": true }),
-		});
-		const tools = await createTools(session);
-		expect(tools.map(t => t.name)).toContain("ask");
+		const requested = await createTools(createTestSession({ hasUI: true }), ["ask", "read"]);
+		expect(requested.map(tool => tool.name)).toEqual(["read"]);
 	});
 
 	it("filters disabled builtin tools by settings", async () => {

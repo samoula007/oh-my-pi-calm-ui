@@ -136,6 +136,8 @@ export class EventController {
 	#orphanedToolCompletions = new Map<string, Extract<AgentSessionEvent, { type: "tool_execution_end" }>>();
 	#postToolAssistantComponents = new Map<string, AssistantMessageComponent>();
 	#lastAssistantComponent: AssistantMessageComponent | undefined = undefined;
+	/** Start of the current user-prompt processing window, spanning all subqueries. */
+	#promptStartedAt: number | undefined;
 	// Assistant component whose turn-ending error is currently mirrored in the
 	// pinned banner. Its inline `Error: …` line is suppressed while pinned and
 	// restored when the banner clears at the next `agent_start` (see
@@ -143,6 +145,7 @@ export class EventController {
 	#pinnedErrorComponent: AssistantMessageComponent | undefined = undefined;
 	#pinnedErrorMessage: AssistantMessage | undefined = undefined;
 	#restorePinnedErrorInline = true;
+
 	#retrySupersededAssistantComponents = new Map<string, AssistantMessageComponent>();
 	#retrySupersededAssistantQueue: AssistantMessageComponent[] = [];
 	// Set when `auto_retry_start` fires and cleared by `auto_retry_end` (both
@@ -762,6 +765,8 @@ export class EventController {
 		}
 		this.#cancelIdleCompaction();
 		this.#cancelIdleRecap();
+		if (this.#promptStartedAt === undefined) this.#promptStartedAt = Date.now();
+
 		this.ctx.statusLine.markActivityStart();
 		this.#setTerminalProgress(true);
 		this.ctx.ensureLoadingAnimation();
@@ -1738,7 +1743,16 @@ export class EventController {
 		await this.#finishAgentEnd(event);
 	}
 
+	#attachPromptDuration(): void {
+		const startedAt = this.#promptStartedAt;
+		const component = this.#lastAssistantComponent;
+		this.#promptStartedAt = undefined;
+		if (startedAt === undefined || component === undefined) return;
+		component.setTurnDuration(Math.max(0, Date.now() - startedAt));
+	}
+
 	async #finishAgentEnd(event: Extract<AgentSessionEvent, { type: "agent_end" }>): Promise<void> {
+		this.#attachPromptDuration();
 		this.#setTerminalProgress(false);
 		this.ctx.statusLine.markActivityEnd();
 		this.#streamingReveal.stop();

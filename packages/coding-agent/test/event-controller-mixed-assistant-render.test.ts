@@ -66,6 +66,8 @@ function createFixture(hideToolActivity = false) {
 		extensionRunner: undefined,
 		isTtsrAbortPending: false,
 		retryAttempt: 0,
+		isStreaming: false,
+		isCompacting: false,
 	};
 	let hasDisplayableThinkingContent = false;
 	const ctx = {
@@ -79,8 +81,7 @@ function createFixture(hideToolActivity = false) {
 		toolOutputExpanded: false,
 		hideToolActivity,
 		effectiveHideThinkingBlock: false,
-		proseOnlyThinking: true,
-		statusLine: { invalidate: vi.fn() },
+		statusLine: { invalidate: vi.fn(), markActivityStart: vi.fn(), markActivityEnd: vi.fn() },
 		updateEditorTopBorder: vi.fn(),
 		noteDisplayableThinkingContent: vi.fn((message: AssistantMessage) => {
 			const hasThinking = message.content.some(
@@ -92,9 +93,14 @@ function createFixture(hideToolActivity = false) {
 		}),
 		session: viewSession,
 		viewSession,
-		sessionManager: { getCwd: () => process.cwd() },
+		sessionManager: { getCwd: () => process.cwd(), getSessionName: () => "test-session" },
+		editor: { getText: () => "" },
+		flushPendingModelSwitch: vi.fn(async () => {}),
+		flushPendingCommandOutput: vi.fn(),
 		showWarning: vi.fn(),
 		showPinnedError: vi.fn(),
+		clearPinnedError: vi.fn(),
+		ensureLoadingAnimation: vi.fn(),
 		clearTransientSessionUi: vi.fn(),
 		lastAssistantUsage: zeroUsage(),
 	} as unknown as InteractiveModeContext;
@@ -117,6 +123,31 @@ describe("EventController mixed assistant text/tool rendering", () => {
 		resetSettingsForTest();
 	});
 
+	it("renders the total prompt processing time on the final assistant message", async () => {
+		const { controller, chatContainer } = createFixture();
+		const started = assistantMessage([]);
+		const completed = assistantMessage([{ type: "text", text: FINAL_MARKER }]);
+		const now = vi.spyOn(Date, "now");
+
+		now.mockReturnValue(1_000);
+		await controller.handleEvent({ type: "agent_start" } as unknown as AgentSessionEvent);
+		await controller.handleEvent({ type: "message_start", message: started } as Extract<
+			AgentSessionEvent,
+			{ type: "message_start" }
+		>);
+		now.mockReturnValue(6_500);
+		await controller.handleEvent({ type: "message_end", message: completed } as Extract<
+			AgentSessionEvent,
+			{ type: "message_end" }
+		>);
+		await controller.handleEvent({
+			type: "agent_end",
+			messages: [completed],
+			isTerminal: true,
+		} as unknown as AgentSessionEvent);
+
+		expect(Bun.stripANSI(chatContainer.render(120).join("\n"))).toContain("Total time: 5.5s");
+	});
 	it("renders assistant text segments in order around two tool results from one mixed message", async () => {
 		const { controller, chatContainer } = createFixture();
 		const toolCallA: ToolCall = {

@@ -15,11 +15,16 @@ import chalk from "@oh-my-pi/pi-utils/chalk";
 import { $ } from "bun";
 import { theme } from "../modes/theme/theme";
 import { isTimeoutError, withTimeoutSignal } from "../utils/fetch-timeout";
+import * as git from "../utils/git";
 
 const REPO = "can1357/oh-my-pi";
 const PACKAGE = "@oh-my-pi/pi-coding-agent";
 const HOMEBREW_FORMULA = "can1357/tap/omp";
 const MISE_TOOL = "github:can1357/oh-my-pi";
+const FORK_UPSTREAM_REMOTE = "upstream";
+const FORK_UPSTREAM_URL = "https://github.com/can1357/oh-my-pi.git";
+const FORK_UPSTREAM_BRANCH = "main";
+
 /**
  * Official npm registry origin.
  *
@@ -55,12 +60,107 @@ const SUPPORTED_NATIVE_TAGS: ReadonlySet<string> = new Set([
 	"linux-x64",
 	"linux-arm64",
 	"darwin-x64",
+
 	"darwin-arm64",
 	"win32-x64",
 ]);
 
 function currentNativeTag(): string {
 	return `${process.platform}-${process.arch}`;
+}
+
+export interface ForkUpdateOptions {
+	readonly check: boolean;
+	readonly force: boolean;
+	readonly install?: (repoRoot: string) => Promise<void>;
+	readonly upstreamUrl?: string;
+}
+
+export interface ForkUpdateResult {
+	readonly commits: number;
+	readonly updated: boolean;
+}
+
+function isCalmUiForkRemote(url: string | undefined): boolean {
+	if (!url) return false;
+	return /(?:^|[/:])samoula007\/oh-my-pi-calm-ui(?:\.git)?$/.test(url);
+}
+
+async function resolveCalmUiForkRoot(): Promise<string | undefined> {
+	const sourceDir = await fs.promises.realpath(import.meta.dir).catch(() => import.meta.dir);
+	const root = await git.repo.root(sourceDir);
+	if (!root) return undefined;
+	const packageJson = await Bun.file(path.join(root, "package.json"))
+		.json()
+		.catch(() => undefined);
+	if (!isRecord(packageJson) || packageJson.name !== "omp") return undefined;
+	return isCalmUiForkRemote(await git.remote.url(root, "origin")) ? root : undefined;
+}
+
+async function installForkDependencies(repoRoot: string): Promise<void> {
+	const result = await $`bun install`.cwd(repoRoot).nothrow();
+	if (result.exitCode !== 0) {
+		throw new Error(`bun install failed with exit code ${result.exitCode}`);
+	}
+}
+
+/**
+ * Update the local calm-ui fork from upstream.
+ *
+ * The fork is source-installed, so package-manager self-update logic must not
+ * run here. `-X ours` keeps the fork's UI (and any other intentional fork
+ * change) when upstream edits the same hunk, while still taking non-conflicting
+ * upstream changes. A merge that remains conflicted is aborted rather than
+ * leaving the checkout unusable.
+ */
+export async function updateForkRepository(repoRoot: string, options: ForkUpdateOptions): Promise<ForkUpdateResult> {
+	const status = await git.status.summary(repoRoot);
+	if (!status) throw new Error(`Not a git repository: ${repoRoot}`);
+	if (status.staged > 0 || status.unstaged > 0 || status.untracked > 0) {
+		throw new Error("Fork update requires a clean working tree.");
+	}
+
+	const branch = await git.branch.current(repoRoot);
+	if (branch !== "main") {
+		throw new Error(`Fork update requires the main branch; currently on ${branch ?? "detached HEAD"}.`);
+	}
+
+	await git.remote.add(repoRoot, FORK_UPSTREAM_REMOTE, options.upstreamUrl ?? FORK_UPSTREAM_URL);
+	await git.fetch(
+		repoRoot,
+		FORK_UPSTREAM_REMOTE,
+		FORK_UPSTREAM_BRANCH,
+		`refs/remotes/${FORK_UPSTREAM_REMOTE}/${FORK_UPSTREAM_BRANCH}`,
+	);
+	const upstreamRef = `${FORK_UPSTREAM_REMOTE}/${FORK_UPSTREAM_BRANCH}`;
+	const commits = (await git.revList.range(repoRoot, "HEAD", upstreamRef)).length;
+	if (commits === 0) {
+		if (options.check || !options.force) {
+			console.log(chalk.green(`${theme.status.success} Fork is up to date with upstream`));
+			return { commits: 0, updated: false };
+		}
+		await (options.install ?? installForkDependencies)(repoRoot);
+		console.log(chalk.green(`${theme.status.success} Refreshed fork dependencies`));
+		return { commits: 0, updated: true };
+	}
+
+	console.log(chalk.cyan(`${commits} upstream commit${commits === 1 ? "" : "s"} available`));
+	if (options.check) return { commits, updated: false };
+
+	try {
+		await git.merge(repoRoot, upstreamRef, { noEdit: true, strategyOption: "ours" });
+	} catch (error) {
+		try {
+			await git.merge.abort(repoRoot);
+		} catch {}
+		throw new Error(
+			`Fork update aborted because upstream merge still conflicted: ${error instanceof Error ? error.message : error}`,
+		);
+	}
+
+	await (options.install ?? installForkDependencies)(repoRoot);
+	console.log(chalk.green(`${theme.status.success} Updated fork from upstream; fork UI preserved`));
+	return { commits, updated: true };
 }
 
 interface ReleaseInfo {
@@ -1112,9 +1212,19 @@ export async function updateViaBinaryAt(
  * Run the update command.
  */
 export async function runUpdateCommand(opts: { force: boolean; check: boolean }): Promise<void> {
+	const forkRoot = await resolveCalmUiForkRoot();
+	if (forkRoot) {
+		try {
+			await updateForkRepository(forkRoot, opts);
+		} catch (error) {
+			console.error(chalk.red(`Fork update failed: ${error instanceof Error ? error.message : error}`));
+			process.exit(1);
+		}
+		return;
+	}
+
 	console.log(chalk.dim(`Current version: ${VERSION}`));
 
-	// Check for updates
 	let release: ReleaseInfo;
 	try {
 		release = await getLatestRelease();
@@ -1136,12 +1246,8 @@ export async function runUpdateCommand(opts: { force: boolean; check: boolean })
 		console.log(chalk.yellow(`Forcing reinstall of ${release.version}`));
 	}
 
-	if (opts.check) {
-		// Just check, don't install
-		return;
-	}
+	if (opts.check) return;
 
-	// Choose update method based on the prioritized omp binary in PATH
 	try {
 		const target = await resolveUpdateTarget();
 		if (target.method === "brew") {

@@ -4,6 +4,8 @@ import * as nodeFs from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as url from "node:url";
+
 import * as pluginCli from "@oh-my-pi/pi-coding-agent/cli/plugin-cli";
 import * as updateCli from "@oh-my-pi/pi-coding-agent/cli/update-cli";
 import {
@@ -22,6 +24,7 @@ import {
 	resolveUpdateMethodForTest,
 	sweepStaleBackups,
 	updateViaBinaryAt,
+	updateForkRepository,
 } from "@oh-my-pi/pi-coding-agent/cli/update-cli";
 import Update from "@oh-my-pi/pi-coding-agent/commands/update";
 import { removeWithRetries } from "@oh-my-pi/pi-utils";
@@ -33,6 +36,29 @@ async function makeTempDir(): Promise<string> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-update-test-"));
 	tempDirs.push(dir);
 	return dir;
+}
+
+const GIT_ENV = {
+	GIT_AUTHOR_NAME: "omp-test",
+	GIT_AUTHOR_EMAIL: "omp-test@example.com",
+	GIT_COMMITTER_NAME: "omp-test",
+	GIT_COMMITTER_EMAIL: "omp-test@example.com",
+	GIT_CONFIG_GLOBAL: "/dev/null",
+	GIT_CONFIG_SYSTEM: "/dev/null",
+} as const;
+
+function gitRun(cwd: string, args: string[]): string {
+	const result = Bun.spawnSync({
+		cmd: ["git", ...args],
+		cwd,
+		env: { ...process.env, ...GIT_ENV },
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	if (result.exitCode !== 0) {
+		throw new Error(`git ${args.join(" ")} failed: ${result.stderr.toString()}`);
+	}
+	return result.stdout.toString().trim();
 }
 
 afterEach(async () => {
@@ -67,6 +93,44 @@ describe("update command plugin dispatch", () => {
 
 		expect(updateSpy).toHaveBeenCalledWith({ force: true, check: true });
 		expect(pluginSpy).not.toHaveBeenCalled();
+	});
+});
+describe("fork updater", () => {
+	it("merges upstream while preserving fork content on conflicts", async () => {
+		const root = await makeTempDir();
+		const upstream = path.join(root, "upstream");
+		const fork = path.join(root, "fork");
+		await fs.mkdir(upstream, { recursive: true });
+
+		gitRun(upstream, ["init", "-q", "-b", "main"]);
+		await Bun.write(path.join(upstream, "ui.txt"), "base\n");
+		gitRun(upstream, ["add", "ui.txt"]);
+		gitRun(upstream, ["commit", "-q", "-m", "base"]);
+
+		gitRun(root, ["clone", "-q", upstream, fork]);
+		gitRun(fork, ["remote", "set-url", "origin", "https://github.com/samoula007/oh-my-pi-calm-ui.git"]);
+		await Bun.write(path.join(fork, "ui.txt"), "fork UI\n");
+		gitRun(fork, ["add", "ui.txt"]);
+		gitRun(fork, ["commit", "-q", "-m", "fork UI"]);
+
+		await Bun.write(path.join(upstream, "ui.txt"), "upstream UI\n");
+		gitRun(upstream, ["add", "ui.txt"]);
+		gitRun(upstream, ["commit", "-q", "-m", "upstream UI"]);
+
+		let installed = false;
+		const result = await updateForkRepository(fork, {
+			check: false,
+			force: false,
+			install: async () => {
+				installed = true;
+			},
+			upstreamUrl: url.pathToFileURL(upstream).href,
+		});
+
+		expect(result).toEqual({ commits: 1, updated: true });
+		expect(await Bun.file(path.join(fork, "ui.txt")).text()).toBe("fork UI\n");
+		expect(gitRun(fork, ["status", "--porcelain"])).toBe("");
+		expect(installed).toBe(true);
 	});
 });
 

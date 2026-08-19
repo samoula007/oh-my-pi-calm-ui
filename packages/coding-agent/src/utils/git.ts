@@ -99,6 +99,12 @@ export interface PushOptions {
 	readonly remote?: string;
 	readonly signal?: AbortSignal;
 }
+export interface MergeOptions {
+	readonly noCommit?: boolean;
+	readonly noEdit?: boolean;
+	readonly strategyOption?: string;
+	readonly signal?: AbortSignal;
+}
 
 export interface PatchOptions {
 	readonly cached?: boolean;
@@ -1420,6 +1426,22 @@ export async function fetch(
 		timeoutMs: resolveTimeoutMs(options.timeoutMs, GIT_NETWORK_TIMEOUT_MS),
 	});
 }
+/** Merge a ref into the current branch. */
+export const merge = Object.assign(
+	async function merge(cwd: string, ref: string, options: MergeOptions = {}): Promise<void> {
+		const args = ["merge"];
+		if (options.noCommit) args.push("--no-commit");
+		if (options.noEdit) args.push("--no-edit");
+		if (options.strategyOption) args.push("-X", options.strategyOption);
+		args.push(ref);
+		await runEffect(cwd, args, { signal: options.signal });
+	},
+	{
+		async abort(cwd: string, signal?: AbortSignal): Promise<void> {
+			await runEffect(cwd, ["merge", "--abort"], { signal });
+		},
+	},
+);
 
 /** Read a tree-ish into the index. */
 export async function readTree(

@@ -91,6 +91,10 @@ describe("StatusLineComponent effective settings cache", () => {
 		expect(getDefault("startup.quiet")).toBe(true);
 		expect(getDefault("startup.changelogMode")).toBe("hidden");
 	});
+
+	it("keeps the total active-time segment visible in the compact default preset", () => {
+		expect(STATUS_LINE_PRESETS.compact.rightSegments).toContain("time_spent");
+	});
 	it("keeps repeated cached renders byte-identical across presets and widths", () => {
 		const cases: StatusLineSettings[] = [
 			{ preset: "default", sessionAccent: false },

@@ -174,6 +174,28 @@ describe("StatusLineComponent active-time accounting", () => {
 		expect(c.getActiveMs()).toBe(4_200);
 	});
 
+	it("repaints while active and stops repainting after the turn ends", () => {
+		vi.useFakeTimers();
+		try {
+			const c = new StatusLineComponent(makeSession());
+			const requestRender = vi.fn();
+			c.watchBranch(requestRender);
+
+			c.markActivityStart();
+			expect(requestRender).toHaveBeenCalledTimes(1);
+			vi.advanceTimersByTime(1_000);
+			expect(requestRender).toHaveBeenCalledTimes(2);
+
+			c.markActivityEnd();
+			expect(requestRender).toHaveBeenCalledTimes(3);
+			vi.advanceTimersByTime(2_000);
+			expect(requestRender).toHaveBeenCalledTimes(3);
+			c.dispose();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("is idempotent: reentrant markActivityStart and unmatched markActivityEnd never double-count", () => {
 		const c = new StatusLineComponent(makeSession());
 		let now = 3_000_000_000;

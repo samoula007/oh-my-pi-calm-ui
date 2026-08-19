@@ -266,6 +266,7 @@ interface ActiveMeter {
 }
 
 const EMPTY_MESSAGES: readonly AgentMessage[] = [];
+const STATUS_ACTIVE_TIME_TICK_MS = 1_000;
 const STATUS_USAGE_START_DELAY_MS = 0;
 const STATUS_USAGE_REFRESH_TIMEOUT_MS = 2_000;
 
@@ -345,6 +346,7 @@ export class StatusLineComponent implements Component {
 	 * dropped from the registry); the main session's meter survives focus
 	 * round-trips because the same {@link AgentSession} ref is reused.
 	 */
+	#activeTimeTimer: Timer | null = null;
 	#activeMeters: WeakMap<AgentSession, ActiveMeter> = new WeakMap();
 	#planModeStatus: { enabled: boolean; paused: boolean } | null = null;
 	#loopModeStatus: SegmentContext["loopMode"] = null;
@@ -484,6 +486,7 @@ export class StatusLineComponent implements Component {
 		if (meter.activeStartedAt === null) return;
 		if (this.session.isStreaming) return;
 		meter.activeStartedAt = null;
+		this.#stopActiveTimeTimer();
 	}
 
 	updateSettings(settings: StatusLineSettings): void {
@@ -515,6 +518,24 @@ export class StatusLineComponent implements Component {
 		return this.#subagentCount;
 	}
 
+	#startActiveTimeTimer(): void {
+		if (this.#activeTimeTimer || this.#disposed) return;
+		this.#activeTimeTimer = setInterval(() => {
+			if (this.#disposed || this.#meter().activeStartedAt === null) {
+				this.#stopActiveTimeTimer();
+				return;
+			}
+			this.#onBranchChange?.();
+		}, STATUS_ACTIVE_TIME_TICK_MS);
+		this.#activeTimeTimer.unref?.();
+	}
+
+	#stopActiveTimeTimer(): void {
+		if (!this.#activeTimeTimer) return;
+		clearInterval(this.#activeTimeTimer);
+		this.#activeTimeTimer = null;
+	}
+
 	/**
 	 * Reset the currently-attached session's active-time accumulators so
 	 * the `time_spent` segment starts from zero. Called from `/clear`,
@@ -527,6 +548,7 @@ export class StatusLineComponent implements Component {
 		const meter = this.#meter();
 		meter.activeMs = 0;
 		meter.activeStartedAt = null;
+		this.#stopActiveTimeTimer();
 	}
 
 	/**
@@ -540,6 +562,8 @@ export class StatusLineComponent implements Component {
 		const meter = this.#meter();
 		if (meter.activeStartedAt !== null) return;
 		meter.activeStartedAt = Date.now();
+		this.#startActiveTimeTimer();
+		this.#onBranchChange?.();
 	}
 
 	/**
@@ -553,6 +577,8 @@ export class StatusLineComponent implements Component {
 		if (meter.activeStartedAt === null) return;
 		meter.activeMs += Math.max(0, Date.now() - meter.activeStartedAt);
 		meter.activeStartedAt = null;
+		this.#stopActiveTimeTimer();
+		this.#onBranchChange?.();
 	}
 
 	/**
@@ -701,6 +727,7 @@ export class StatusLineComponent implements Component {
 
 	dispose(): void {
 		this.#disposed = true;
+		this.#stopActiveTimeTimer();
 		this.#branchResolveActive?.controller.abort();
 		this.#branchResolveActive = undefined;
 		this.#resetJjRequests();
@@ -1865,4 +1892,3 @@ export class StatusLineComponent implements Component {
 		return lines;
 	}
 }
-

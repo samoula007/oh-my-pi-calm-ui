@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Changed `omp update` in the calm-ui fork to fetch and merge upstream source updates while preserving fork changes on merge conflicts instead of installing the official OMP package.
+
+### Fixed
+
+- Fixed the default compact status line omitting total active session time and added periodic repaints while the agent is working so the timer stays current during quiet tool calls.
+
 ### Removed
 
 - Removed the Auto QA report route, consent prompt, grievance CLI, settings, and provider-facing instructions.

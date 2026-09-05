@@ -6,8 +6,10 @@ export const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 
 /**
  * Pinned OpenAI Codex client version (corresponds to @openai/codex package version).
+ *
+ * GPT-6 Astra is version-gated by the Codex backend and requires >= 0.153.0.
  */
-export const CODEX_CLIENT_VERSION = "0.144.1";
+export const CODEX_CLIENT_VERSION = "0.153.0";
 
 export const OPENAI_HEADERS = {
 	BETA: "OpenAI-Beta",
@@ -35,7 +37,7 @@ export const OPENAI_HEADER_VALUES = {
 	BETA_RESPONSES: "responses=experimental",
 	BETA_RESPONSES_WEBSOCKETS_V2: "responses_websockets=2026-02-06",
 	REMOTE_COMPACTION_V2: "remote_compaction_v2",
-	ORIGINATOR_CODEX: "pi",
+	ORIGINATOR_CODEX: "omp",
 } as const;
 
 export const URL_PATHS = {

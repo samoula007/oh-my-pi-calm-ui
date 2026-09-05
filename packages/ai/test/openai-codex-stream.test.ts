@@ -395,7 +395,8 @@ describe("openai-codex streaming", () => {
 		expect(requestHeaders?.get("Authorization")).toBe("Bearer opaque-proxy-key");
 		expect(requestHeaders?.has("chatgpt-account-id")).toBe(false);
 		expect(requestHeaders?.get("OpenAI-Beta")).toBe("responses=experimental");
-		expect(requestHeaders?.get("originator")).toBe("pi");
+		expect(requestHeaders?.get("originator")).toBe("omp");
+		expect(requestHeaders?.get("version")).toBe("0.153.0");
 	});
 
 	it("omits chatgpt account headers on opaque custom provider websockets", async () => {
@@ -443,7 +444,8 @@ describe("openai-codex streaming", () => {
 		expect(capturedHeaders?.authorization).toBe("Bearer opaque-proxy-key");
 		expect(capturedHeaders?.["chatgpt-account-id"]).toBeUndefined();
 		expect(capturedHeaders?.["openai-beta"]).toBe("responses_websockets=2026-02-06");
-		expect(capturedHeaders?.originator).toBe("pi");
+		expect(capturedHeaders?.originator).toBe("omp");
+		expect(capturedHeaders?.version).toBe("0.153.0");
 	});
 
 	it("sends an async onPayload replacement body", async () => {
@@ -1797,7 +1799,8 @@ describe("openai-codex streaming", () => {
 				expect(headers?.get("Authorization")).toBe(`Bearer ${token}`);
 				expect(headers?.get("chatgpt-account-id")).toBe("acc_test");
 				expect(headers?.get("OpenAI-Beta")).toBe("responses=experimental");
-				expect(headers?.get("originator")).toBe("pi");
+				expect(headers?.get("originator")).toBe("omp");
+				expect(headers?.get("version")).toBe("0.153.0");
 				expect(headers?.get("accept")).toBe("text/event-stream");
 				expect(headers?.has("x-api-key")).toBe(false);
 				return new Response(stream, {

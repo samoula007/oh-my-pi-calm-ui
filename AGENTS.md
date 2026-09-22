@@ -184,6 +184,16 @@ To change an entry, fix the source:
 
 Regenerate with `bun run gen:models` and commit `models.json` alongside the source change. Add a regression test against the **resolver/descriptor**, not the bundled JSON, so it survives upstream metadata shifts.
 
+### Adding a model
+
+1. Confirm the exact provider/model IDs, API routes, modalities, context/output limits, pricing (including long-context tiers), and reasoning wire vocabulary from the provider's current documentation.
+2. Trace an existing model in the same provider/API path end to end: catalog source, generator policy, identity/thinking classification, request builder, and provider discovery. Reuse that path; do not infer support from a similarly named model or another provider.
+3. Put bundled metadata in its source, never `models.json`: resolver/descriptor for upstream-listed models; a curated static seed in `provider-models/openai-compat.ts` plus `generate-models.ts` for documented models missing from the upstream snapshot. Add API-specific generated policies for limits, pricing, reasoning/off behavior, and tool capabilities.
+4. Treat OAuth discovery as account-scoped when applicable. An authoritative account model list decides which models that account can select. Do not force a static row into that list when the account endpoint omits it; client metadata cannot grant server entitlement.
+5. For Codex rejection mentioning a model unsupported with a ChatGPT account, compare the exact historical Codex setup commits and check the pinned `CODEX_CLIENT_VERSION` against the current `@openai/codex` package version. Update the pin only when the backend's version gate is evidenced; keep request originator and version tests aligned. Do not diagnose an account-entitlement error as a client-version error, or vice versa.
+6. Add behavior tests for provider discovery/selection and serialized request fields (limits, effort mapping, and headers as applicable), then run `bun run gen:models`, focused tests, and package checks.
+7. Verify the actual provider listing after refresh (`bun packages/coding-agent/src/cli.ts models refresh`, then `... models <provider>`) and exercise a request only with an account/API credential entitled to that model. Distinguish “catalog selectable” from “backend accepts requests.”
+
 ## Logging and CLI Output
 
 Code that may run while the TUI, RPC, SDK, workers, or background runtimes are active MUST NOT use `console.log`/`error`/`warn`; it corrupts rendering or protocols. Use the centralized logger:

@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- Added GPT-6 Luna and GPT-6 Sol to the bundled direct OpenAI and Codex catalogs with documented pricing, 1.05M context, 128K output limits, reasoning controls, and Codex long-context routing; account-scoped Codex discovery still filters models the signed-in ChatGPT account does not advertise.
+
 ### Fixed
-- Fixed GPT-6 Astra Codex requests being rejected as requiring a newer Codex client by raising the pinned compatibility version to `0.153.0` and identifying the client as `omp`.
+- Fixed GPT-6 Luna, Sol, and Astra Codex requests being rejected by the backend's client-version gate by pinning the Codex compatibility version to `0.156.0` and identifying the client as `omp`.
 
 - Fixed `opencode-go/muse-spark-1.2` and `muse-spark-1.2-contributor` still failing every tool-call turn with `OpenAI completions stream closed before a finish_reason was received` on 17.3.8. The earlier pin only covered the models.dev resolver, but models.dev omits these ids under `opencode-go` entirely, so live `/zen/go/v1/models` discovery had no bundled reference and defaulted them to chat completions. The per-id API pins now also apply inside the discovery mapper, and pinned ids invalidate cached routes written before the pin ([#8957](https://github.com/can1357/oh-my-pi/issues/8957)).
 - Future gateway-first OpenCode models (ids the gateway serves before models.dev lists them, like muse-spark-1.2 was) no longer default to chat completions blindly: discovery now borrows the `openai-responses` route from the sibling gateway's catalog or the billing-variant base id (`-free`/`-contributor`). Only the responses signal is borrowed — anthropic transports genuinely diverge across the gateways (e.g. `minimax-m2.5`) and are never inferred.

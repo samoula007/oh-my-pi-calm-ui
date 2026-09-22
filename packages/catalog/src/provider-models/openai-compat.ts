@@ -22,7 +22,12 @@ import {
 import { resolveModelReference } from "../identity/reference";
 import type { ModelManagerOptions } from "../model-manager";
 import { type GeneratedProvider, getBundledModels } from "../models";
-import { OPENAI_GPT_56_CYBER_STANDARD_COST, OPENAI_GPT_56_SOL_STANDARD_COST } from "../openai-pricing";
+import {
+	OPENAI_GPT_6_LUNA_STANDARD_COST,
+	OPENAI_GPT_6_SOL_STANDARD_COST,
+	OPENAI_GPT_56_CYBER_STANDARD_COST,
+	OPENAI_GPT_56_SOL_STANDARD_COST,
+} from "../openai-pricing";
 import type {
 	Api,
 	FetchImpl,
@@ -35,6 +40,7 @@ import type {
 } from "../types";
 import { discoveryFetch, isAnthropicOAuthToken, isRecord, toBoolean, toNumber, toPositiveNumber } from "../utils";
 import { ALIBABA_TOKEN_PLAN_BASE_URL, parseAlibabaTokenPlanCredential } from "../wire/alibaba-token-plan";
+import { CODEX_BASE_URL } from "../wire/codex";
 import { coreWeaveProjectHeaders } from "../wire/coreweave";
 import {
 	COPILOT_API_HEADERS,
@@ -968,6 +974,76 @@ export const OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS: readonly ModelSpec<"openai
 		cost: OPENAI_GPT_56_CYBER_STANDARD_COST,
 		contextWindow: 400_000,
 		maxTokens: 128_000,
+	},
+];
+/**
+ * GPT-6 Luna and Sol are not present in the bundled upstream snapshot yet.
+ * Keep both direct OpenAI and ChatGPT Codex routes selectable before live
+ * discovery runs. Codex discovery remains authoritative once an account list
+ * is available.
+ */
+export const OPENAI_GPT_6_CURATED_FALLBACK_MODELS: readonly ModelSpec[] = [
+	{
+		id: "gpt-6-luna",
+		name: "GPT-6 Luna",
+		api: "openai-responses",
+		provider: "openai",
+		baseUrl: OPENAI_API_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_6_LUNA_STANDARD_COST },
+		contextWindow: 1_050_000,
+		maxTokens: 128_000,
+	},
+	{
+		id: "gpt-6-sol",
+		name: "GPT-6 Sol",
+		api: "openai-responses",
+		provider: "openai",
+		baseUrl: OPENAI_API_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_6_SOL_STANDARD_COST },
+		contextWindow: 1_050_000,
+		maxTokens: 128_000,
+	},
+	{
+		id: "gpt-6-luna",
+		name: "GPT-6 Luna",
+		api: "openai-codex-responses",
+		provider: "openai-codex",
+		baseUrl: CODEX_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_6_LUNA_STANDARD_COST },
+		remoteCompaction: {
+			enabled: true,
+			api: "openai-codex-responses",
+			v2StreamingEnabled: true,
+		},
+		contextWindow: 1_000_000,
+		maxTokens: 128_000,
+		preferWebsockets: true,
+		useResponsesLite: true,
+	},
+	{
+		id: "gpt-6-sol",
+		name: "GPT-6 Sol",
+		api: "openai-codex-responses",
+		provider: "openai-codex",
+		baseUrl: CODEX_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_6_SOL_STANDARD_COST },
+		remoteCompaction: {
+			enabled: true,
+			api: "openai-codex-responses",
+			v2StreamingEnabled: true,
+		},
+		contextWindow: 1_000_000,
+		maxTokens: 128_000,
+		preferWebsockets: true,
+		useResponsesLite: true,
 	},
 ];
 

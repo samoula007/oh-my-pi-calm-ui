@@ -7,9 +7,9 @@ export const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
 /**
  * Pinned OpenAI Codex client version (corresponds to @openai/codex package version).
  *
- * GPT-6 Astra is version-gated by the Codex backend and requires >= 0.153.0.
+ * GPT-6 Luna and Sol require the current Codex client compatibility gate.
  */
-export const CODEX_CLIENT_VERSION = "0.153.0";
+export const CODEX_CLIENT_VERSION = "0.156.0";
 
 export const OPENAI_HEADERS = {
 	BETA: "OpenAI-Beta",

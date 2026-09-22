@@ -47,6 +47,7 @@ import {
 	MODELS_DEV_PROVIDER_DESCRIPTORS,
 	mapModelsDevToModels,
 	OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS,
+	OPENAI_GPT_6_CURATED_FALLBACK_MODELS,
 	projectOpenAIProReasoningAliases,
 	SAKANA_FUGU_STATIC_MODELS,
 	stripFireworksDeepSeekThinkingToggle,
@@ -548,6 +549,10 @@ async function generateModels() {
 	// persisted `modelRoles.default = "xai-oauth/<id>"` is honored before the
 	// async refresh fires (interactive boot does not await refresh).
 	allModels.push(...buildXaiOAuthStaticSeed());
+	// GPT-6 Luna and Sol are released but not present in the current
+	// stencil.so snapshot. Seed direct OpenAI and Codex routes; Codex discovery
+	// remains authoritative when an authenticated account exposes its catalog.
+	allModels.push(...OPENAI_GPT_6_CURATED_FALLBACK_MODELS);
 	// Daybreak is separately provisioned and absent from stencil.so. Keep its
 	// documented aliases and current Cyber snapshot in every generated bundle.
 	allModels.push(...OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS);

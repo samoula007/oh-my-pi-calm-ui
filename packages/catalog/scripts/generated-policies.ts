@@ -18,6 +18,7 @@ import { isMimoModelIdOrName } from "../src/identity/family";
 import { getLongestModelLikeIdSegment } from "../src/identity/id";
 import { buildModelReferenceIndex, resolveModelReference } from "../src/identity/reference";
 import { resolveModelThinking } from "../src/model-thinking";
+import { OPENAI_GPT_6_LONG_CONTEXT_COSTS } from "../src/openai-pricing";
 import { isOllamaCloudOutputCapped, OLLAMA_CLOUD_MAX_OUTPUT_TOKENS } from "../src/provider-models/ollama";
 import {
 	ALIBABA_TOKEN_PLAN_STATIC_MODELS,
@@ -145,18 +146,22 @@ const CODEX_GPT_5_4_PRIORITY_BY_VARIANT: Partial<Record<OpenAIVariant, number>> 
 	nano: 2,
 };
 
-const CODEX_GPT_5_6_1M_MODEL_IDS: Record<string, true> = {
+const CODEX_1M_MODEL_IDS: Record<string, true> = {
 	"gpt-5.6-luna": true,
 	"gpt-5.6-sol": true,
 	"gpt-5.6-terra": true,
+	"gpt-6-luna": true,
+	"gpt-6-sol": true,
 };
 
-const OPENAI_GPT_5_6_LONG_CONTEXT_COST_BY_MODEL_ID: Readonly<Record<string, LongContextTokenCost>> = {
+const OPENAI_LONG_CONTEXT_COST_BY_MODEL_ID: Readonly<Record<string, LongContextTokenCost>> = {
 	"daybreak-blue-latest": OPENAI_GPT_56_LONG_CONTEXT_COSTS.sol,
 	"gpt-5.6": OPENAI_GPT_56_LONG_CONTEXT_COSTS.sol,
 	"gpt-5.6-luna": OPENAI_GPT_56_LONG_CONTEXT_COSTS.luna,
 	"gpt-5.6-sol": OPENAI_GPT_56_LONG_CONTEXT_COSTS.sol,
 	"gpt-5.6-terra": OPENAI_GPT_56_LONG_CONTEXT_COSTS.terra,
+	"gpt-6-luna": OPENAI_GPT_6_LONG_CONTEXT_COSTS.luna,
+	"gpt-6-sol": OPENAI_GPT_6_LONG_CONTEXT_COSTS.sol,
 };
 
 const OPENAI_NONE_EFFORT_MODEL_IDS: Record<string, true> = {
@@ -167,6 +172,8 @@ const OPENAI_NONE_EFFORT_MODEL_IDS: Record<string, true> = {
 	"gpt-5.6-luna": true,
 	"gpt-5.6-sol": true,
 	"gpt-5.6-terra": true,
+	"gpt-6-luna": true,
+	"gpt-6-sol": true,
 };
 
 function modelOrRequestIdValue<T>(
@@ -494,7 +501,7 @@ function inferGeneratedApplyPatchToolType(
 	model: ModelSpec<Api>,
 	parsedModel: ParsedModel,
 ): ModelSpec<Api>["applyPatchToolType"] {
-	if (parsedModel.family !== "openai" || parsedModel.version.major !== 5) {
+	if (parsedModel.family !== "openai" || parsedModel.version.major < 5) {
 		return undefined;
 	}
 	if (model.provider === "openai" && model.api === "openai-responses") {
@@ -512,7 +519,7 @@ function applyOpenAICatalogPolicy(model: ModelSpec<Api>, parsedModel: OpenAIMode
 		model.compat = { ...(model.compat ?? {}), reasoningDisableMode: "none-effort" };
 	}
 	const longContextCost = isFirstPartyResponses
-		? modelOrRequestIdValue(model, OPENAI_GPT_5_6_LONG_CONTEXT_COST_BY_MODEL_ID)
+		? modelOrRequestIdValue(model, OPENAI_LONG_CONTEXT_COST_BY_MODEL_ID)
 		: undefined;
 	if (longContextCost) {
 		model.cost = { ...model.cost, longContext: longContextCost };
@@ -536,12 +543,9 @@ function applyOpenAICatalogPolicy(model: ModelSpec<Api>, parsedModel: OpenAIMode
 			model.contextWindow = 272000;
 		}
 	}
-	// GPT-5.6 luna/sol/terra on the Codex transport: OpenAI enabled a 1M-token
-	// window for subscription Codex (2026-08-16), but the Codex model registry
-	// still reports the stale 272000 (openai/codex#38917), so floor the bundled
-	// window at 1,000,000. Daybreak aliases are excluded — the registry actively
-	// reports their true window.
-	if (model.api === "openai-codex-responses" && CODEX_GPT_5_6_1M_MODEL_IDS[model.id]) {
+	// GPT-5.6 and GPT-6 Luna/Sol on the Codex transport use a 1M-token
+	// context window even when the upstream registry reports a smaller value.
+	if (model.api === "openai-codex-responses" && CODEX_1M_MODEL_IDS[model.id]) {
 		model.contextWindow = Math.max(model.contextWindow ?? 0, 1_000_000);
 	}
 }

@@ -149,6 +149,20 @@ describe("error-id classification", () => {
 		expect(AIError.is(AIError.classifyMessage(oversized), AIError.Flag.AccountPolicy)).toBe(false);
 	});
 
+	it("applies the same entitlement classification to GPT-6 Luna", () => {
+		const denial = message({
+			api: "openai-codex-responses",
+			provider: "openai-codex",
+			model: "gpt-6-luna",
+			errorStatus: 400,
+			errorMessage:
+				"The 'gpt-6-luna' model is not supported when using Codex with a ChatGPT account. (code=invalid_request_error)",
+		});
+		const id = AIError.classifyMessage(denial);
+		expect(AIError.is(id, AIError.Flag.AccountPolicy)).toBe(true);
+		expect(AIError.isCodexChatGPTAccountPolicyError(denial, denial.provider, denial.model)).toBe(true);
+	});
+
 	it("keeps raw status fallback unclassified", () => {
 		const id = 503;
 		expect(AIError.is(id, AIError.Flag.Class)).toBe(false);

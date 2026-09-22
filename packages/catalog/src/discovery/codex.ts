@@ -1,7 +1,7 @@
 import { type } from "@oh-my-pi/omptype";
 import { parseKnownModel, semverEqual } from "../identity/classify";
 import { getBundledModels } from "../models";
-import { resolveOpenAIDaybreakStandardCost } from "../openai-pricing";
+import { resolveOpenAIDaybreakStandardCost, resolveOpenAIGpt6StandardCost } from "../openai-pricing";
 import type { FetchImpl, ModelSpec } from "../types";
 import { discoveryFetch } from "../utils";
 import { CODEX_BASE_URL, CODEX_CLIENT_VERSION, OPENAI_HEADER_VALUES, OPENAI_HEADERS } from "../wire/codex";
@@ -17,12 +17,18 @@ const DEFAULT_MAX_TOKENS = 128_000;
 const GPT_5_6_CONTEXT_WINDOW = 372_000;
 /**
  * OpenAI enabled a 1M-token window for subscription Codex on GPT-5.6
- * luna/sol/terra (2026-08-16), but the Codex model registry still reports the
- * stale 272000 — so the reported value must be floored, not just defaulted
- * (openai/codex#38917; Codex CLI override `model_context_window = 1000000`).
+ * luna/sol/terra and GPT-6 luna/sol, but the Codex model registry can report
+ * a stale smaller window. Floor these SKUs at 1,000,000 instead of trusting
+ * the reported value.
  */
-const GPT_5_6_1M_CONTEXT_WINDOW = 1_000_000;
-const CODEX_GPT_5_6_1M_SLUGS: ReadonlySet<string> = new Set(["gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"]);
+const CODEX_1M_CONTEXT_WINDOW = 1_000_000;
+const CODEX_1M_CONTEXT_SLUGS: Record<string, true> = {
+	"gpt-5.6-luna": true,
+	"gpt-5.6-sol": true,
+	"gpt-5.6-terra": true,
+	"gpt-6-luna": true,
+	"gpt-6-sol": true,
+};
 /**
  * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).
  *
@@ -338,11 +344,12 @@ function buildNormalizedCodexModel(
 			? GPT_5_6_CONTEXT_WINDOW
 			: DEFAULT_CONTEXT_WINDOW;
 	const reportedContextWindow = parsed.contextWindow ?? fallbackContextWindow;
-	const contextWindow = CODEX_GPT_5_6_1M_SLUGS.has(canonicalSlug)
-		? Math.max(reportedContextWindow, GPT_5_6_1M_CONTEXT_WINDOW)
+	const contextWindow = CODEX_1M_CONTEXT_SLUGS[canonicalSlug]
+		? Math.max(reportedContextWindow, CODEX_1M_CONTEXT_WINDOW)
 		: reportedContextWindow;
 	const maxTokens = Math.min(DEFAULT_MAX_TOKENS, contextWindow);
-	const daybreakCost = resolveOpenAIDaybreakStandardCost(canonicalSlug);
+	const standardCost =
+		resolveOpenAIDaybreakStandardCost(canonicalSlug) ?? resolveOpenAIGpt6StandardCost(canonicalSlug);
 
 	return {
 		priority: parsed.priority,
@@ -354,7 +361,7 @@ function buildNormalizedCodexModel(
 			baseUrl,
 			reasoning: parsed.reasoning,
 			input: parsed.input,
-			cost: daybreakCost ? { ...daybreakCost } : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			cost: standardCost ? { ...standardCost } : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			remoteCompaction: CODEX_REMOTE_COMPACTION,
 			contextWindow,
 			maxTokens,

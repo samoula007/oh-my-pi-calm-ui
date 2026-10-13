@@ -549,9 +549,9 @@ async function generateModels() {
 	// persisted `modelRoles.default = "xai-oauth/<id>"` is honored before the
 	// async refresh fires (interactive boot does not await refresh).
 	allModels.push(...buildXaiOAuthStaticSeed());
-	// GPT-6 Luna and Sol are released but not present in the current
-	// stencil.so snapshot. Seed direct OpenAI and Codex routes; Codex discovery
-	// remains authoritative when an authenticated account exposes its catalog.
+	// GPT-6 Luna/Sol and GPT-6.1 Sol are released but absent from the current
+	// stencil.so snapshot. Seed direct OpenAI and Codex routes; authenticated
+	// Codex discovery remains authoritative for each account's catalog.
 	allModels.push(...OPENAI_GPT_6_CURATED_FALLBACK_MODELS);
 	// Daybreak is separately provisioned and absent from stencil.so. Keep its
 	// documented aliases and current Cyber snapshot in every generated bundle.

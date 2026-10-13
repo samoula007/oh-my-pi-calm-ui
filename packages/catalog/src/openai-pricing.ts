@@ -31,6 +31,23 @@ export const OPENAI_GPT_6_SOL_STANDARD_COST = {
 	cacheWrite: 2.5,
 } as const satisfies TokenCost;
 
+/** Standard GPT-6.1 Sol rates for direct OpenAI and Codex catalog entries. */
+export const OPENAI_GPT_61_SOL_STANDARD_COST = {
+	input: 2,
+	output: 10,
+	cacheRead: 0.1,
+	cacheWrite: 2.5,
+} as const satisfies TokenCost;
+
+/** GPT-6.1 Sol rates above the 272K long-context threshold. */
+export const OPENAI_GPT_61_SOL_LONG_CONTEXT_COST = {
+	inputThreshold: 272_000,
+	input: 4,
+	output: 15,
+	cacheRead: 0.2,
+	cacheWrite: 5,
+} as const satisfies TokenCost & { inputThreshold: number };
+
 /** GPT-6 rates for prompts exceeding the 272K long-context threshold. */
 export const OPENAI_GPT_6_LONG_CONTEXT_COSTS = {
 	luna: {
@@ -49,13 +66,15 @@ export const OPENAI_GPT_6_LONG_CONTEXT_COSTS = {
 	},
 } as const satisfies Readonly<Record<"luna" | "sol", TokenCost & { inputThreshold: number }>>;
 
-/** Resolve GPT-6 standard rates for Codex discovery rows. */
+/** Resolve GPT-6 and GPT-6.1 standard rates for Codex discovery rows. */
 export function resolveOpenAIGpt6StandardCost(modelId: string): TokenCost | undefined {
 	switch (modelId) {
 		case "gpt-6-luna":
 			return OPENAI_GPT_6_LUNA_STANDARD_COST;
 		case "gpt-6-sol":
 			return OPENAI_GPT_6_SOL_STANDARD_COST;
+		case "gpt-6.1-sol":
+			return OPENAI_GPT_61_SOL_STANDARD_COST;
 		default:
 			return undefined;
 	}

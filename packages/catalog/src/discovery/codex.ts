@@ -17,9 +17,9 @@ const DEFAULT_MAX_TOKENS = 128_000;
 const GPT_5_6_CONTEXT_WINDOW = 372_000;
 /**
  * OpenAI enabled a 1M-token window for subscription Codex on GPT-5.6
- * luna/sol/terra and GPT-6 luna/sol, but the Codex model registry can report
- * a stale smaller window. Floor these SKUs at 1,000,000 instead of trusting
- * the reported value.
+ * luna/sol/terra, GPT-6 luna/sol, and GPT-6.1 Sol, but the Codex registry
+ * can report a stale smaller window. Floor these SKUs at 1,000,000 instead
+ * of trusting the reported value.
  */
 const CODEX_1M_CONTEXT_WINDOW = 1_000_000;
 const CODEX_1M_CONTEXT_SLUGS: Record<string, true> = {
@@ -28,6 +28,7 @@ const CODEX_1M_CONTEXT_SLUGS: Record<string, true> = {
 	"gpt-5.6-terra": true,
 	"gpt-6-luna": true,
 	"gpt-6-sol": true,
+	"gpt-6.1-sol": true,
 };
 /**
  * Codex advertises worker-mode SKUs under a `-wm` suffix (`gpt-5.6-luna-wm`).

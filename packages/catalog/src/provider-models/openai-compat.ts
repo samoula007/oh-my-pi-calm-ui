@@ -25,6 +25,7 @@ import { type GeneratedProvider, getBundledModels } from "../models";
 import {
 	OPENAI_GPT_6_LUNA_STANDARD_COST,
 	OPENAI_GPT_6_SOL_STANDARD_COST,
+	OPENAI_GPT_61_SOL_STANDARD_COST,
 	OPENAI_GPT_56_CYBER_STANDARD_COST,
 	OPENAI_GPT_56_SOL_STANDARD_COST,
 } from "../openai-pricing";
@@ -977,10 +978,10 @@ export const OPENAI_DAYBREAK_CURATED_FALLBACK_MODELS: readonly ModelSpec<"openai
 	},
 ];
 /**
- * GPT-6 Luna and Sol are not present in the bundled upstream snapshot yet.
- * Keep both direct OpenAI and ChatGPT Codex routes selectable before live
- * discovery runs. Codex discovery remains authoritative once an account list
- * is available.
+ * GPT-6 Luna/Sol and GPT-6.1 Sol are not present in the bundled upstream
+ * snapshot yet. Keep direct OpenAI and ChatGPT Codex routes selectable before
+ * live discovery runs. Codex discovery remains authoritative once an account
+ * list is available.
  */
 export const OPENAI_GPT_6_CURATED_FALLBACK_MODELS: readonly ModelSpec[] = [
 	{
@@ -1004,6 +1005,18 @@ export const OPENAI_GPT_6_CURATED_FALLBACK_MODELS: readonly ModelSpec[] = [
 		reasoning: true,
 		input: ["text", "image"],
 		cost: { ...OPENAI_GPT_6_SOL_STANDARD_COST },
+		contextWindow: 1_050_000,
+		maxTokens: 128_000,
+	},
+	{
+		id: "gpt-6.1-sol",
+		name: "GPT-6.1 Sol",
+		api: "openai-responses",
+		provider: "openai",
+		baseUrl: OPENAI_API_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_61_SOL_STANDARD_COST },
 		contextWindow: 1_050_000,
 		maxTokens: 128_000,
 	},
@@ -1035,6 +1048,25 @@ export const OPENAI_GPT_6_CURATED_FALLBACK_MODELS: readonly ModelSpec[] = [
 		reasoning: true,
 		input: ["text", "image"],
 		cost: { ...OPENAI_GPT_6_SOL_STANDARD_COST },
+		remoteCompaction: {
+			enabled: true,
+			api: "openai-codex-responses",
+			v2StreamingEnabled: true,
+		},
+		contextWindow: 1_000_000,
+		maxTokens: 128_000,
+		preferWebsockets: true,
+		useResponsesLite: true,
+	},
+	{
+		id: "gpt-6.1-sol",
+		name: "GPT-6.1 Sol",
+		api: "openai-codex-responses",
+		provider: "openai-codex",
+		baseUrl: CODEX_BASE_URL,
+		reasoning: true,
+		input: ["text", "image"],
+		cost: { ...OPENAI_GPT_61_SOL_STANDARD_COST },
 		remoteCompaction: {
 			enabled: true,
 			api: "openai-codex-responses",

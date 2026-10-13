@@ -144,6 +144,48 @@ describe("Codex model discovery", () => {
 		expect(legacy?.contextWindow).toBe(272_000);
 	});
 
+	it("exposes advertised GPT-6.1 Sol with the 1M Codex window and pricing", async () => {
+		let catalogUrl: string | undefined;
+		let catalogVersion: string | null | undefined;
+		const fetchFn: typeof fetch = Object.assign(
+			async (input: string | URL | Request, init?: RequestInit) => {
+				catalogUrl = String(input);
+				catalogVersion = new Headers(init?.headers).get("version");
+				return new Response(
+					JSON.stringify({
+						models: [
+							{
+								slug: "gpt-6.1-sol",
+								display_name: "GPT-6.1 Sol",
+								context_window: 272_000,
+								default_reasoning_level: "medium",
+								supported_reasoning_levels: ["low", "medium", "high", "xhigh", "max"],
+								input_modalities: ["text", "image"],
+								supported_in_api: true,
+								prefer_websockets: true,
+							},
+						],
+					}),
+				);
+			},
+			{ preconnect() {} },
+		);
+		const result = await fetchCodexModels({
+			accessToken: "test-token",
+			baseUrl: "https://codex.example/backend-api",
+			fetchFn,
+		});
+		expect(catalogUrl).toBe("https://codex.example/backend-api/codex/models?client_version=0.162.1");
+		expect(catalogVersion).toBe("0.162.1");
+		expect(result?.models[0]).toMatchObject({
+			id: "gpt-6.1-sol",
+			api: "openai-codex-responses",
+			contextWindow: 1_000_000,
+			cost: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+			preferWebsockets: true,
+		});
+	});
+
 	it("normalizes Codex Daybreak aliases to GPT-5.6 capabilities and pricing", async () => {
 		const fetchFn: typeof fetch = Object.assign(
 			async () =>
